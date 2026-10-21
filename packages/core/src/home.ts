@@ -3,8 +3,8 @@ import type { Db } from "@projectos/db";
 import { memberships, organizations, sites, tasks } from "@projectos/db/schema";
 import { hasAny, type AuthContext } from "@projectos/auth";
 import { todayIn } from "@projectos/shared";
-import { projectScopeWhere } from "./projects/scope";
 import { projects } from "@projectos/db/schema";
+import { projectScopeWhere } from "./projects/scope";
 
 /** SQL-derived home metrics. Every number carries its definition and the time it was computed. */
 export async function getHomeSummary(db: Db, ctx: AuthContext) {
@@ -18,7 +18,8 @@ export async function getHomeSummary(db: Db, ctx: AuthContext) {
     const scope = projectScopeWhere(ctx);
     const open = and(eq(tasks.organizationId, ctx.organizationId), isNull(tasks.deletedAt), notInArray(tasks.status, ["DONE", "CANCELLED"]), scope);
     const overdue = sql`${tasks.dueDate} < ${today}`;
-    const mine = eq(tasks.ownerUserId, ctx.userId);
+    // Same definition as the /tasks?mine=true drill-down: owner OR collaborator.
+    const mine = sql`(${tasks.ownerUserId} = ${ctx.userId} or exists (select 1 from task_collaborators c where c.task_id = ${tasks.id} and c.user_id = ${ctx.userId}))`;
     const q = (extra?: ReturnType<typeof sql>) =>
       db.select({ n: count() }).from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId)).where(extra ? and(open, extra) : open);
     const [[ap], [ot], [od], [mo], [mod]] = await Promise.all([

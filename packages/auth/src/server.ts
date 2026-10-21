@@ -31,7 +31,8 @@ function buildAuth() {
       expiresIn: 60 * 60 * 8, // 8h working session
       updateAge: 60 * 30, // rolling refresh every 30 min of activity
     },
-    rateLimit: { enabled: true, window: 60, max: 60, customRules: { "/sign-in/email": { window: 60, max: 10 } } },
+    // Sign-in attempts per IP per minute (lower in production; E2E raises it via env because it signs in repeatedly).
+    rateLimit: { enabled: true, window: 60, max: 100, customRules: { "/sign-in/email": { window: 60, max: Number(process.env.AUTH_SIGNIN_MAX_PER_MIN ?? 10) } } },
     advanced: {
       database: { generateId: "uuid" },
       useSecureCookies: baseURL.startsWith("https://"),

@@ -1,0 +1,44 @@
+# Local development stack: PostgreSQL 16 + web + worker. Synthetic data only.
+# Quick start:  cp .env.example .env  &&  docker compose up -d db  &&  pnpm i && pnpm db:migrate && pnpm db:seed && pnpm dev
+# Full stack in containers:  docker compose --profile app up --build
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: projectos
+      POSTGRES_PASSWORD: projectos_dev_password
+      POSTGRES_DB: projectos
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U projectos -d projectos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    profiles: ["app"]
+    build: { context: ., target: web }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://projectos:projectos_dev_password@db:5432/projectos
+      BETTER_AUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: { context: ., target: worker }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://projectos:projectos_dev_password@db:5432/projectos
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:

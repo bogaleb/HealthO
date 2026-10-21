@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { createDb, loadRootEnv, type Db } from "@projectos/db";
+import { createDb, isMain, loadRootEnv, type Db } from "@projectos/db";
 import { departments, projectTemplates, sites, teams, taskComments, checklistItems } from "@projectos/db/schema";
 import { hashPassword } from "better-auth/crypto";
 import { loadAuthContext } from "@projectos/auth";
@@ -154,7 +154,7 @@ export async function seedDemo(db: Db, password: string) {
   return { skipped: false as const, organizationId: o, sites: [alx!.code, ssp!.code, nedc!.code] };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   loadRootEnv();
   const pw = process.env.DEMO_PASSWORD;
   if (!pw || pw.length < 12) {

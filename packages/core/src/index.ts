@@ -11,3 +11,4 @@ export * from "./projects/tasks";
 export * from "./projects/recurring";
 export * from "./home";
 export * from "./seed/bootstrap";
+export * from "./jobs";

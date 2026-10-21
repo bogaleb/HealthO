@@ -140,6 +140,10 @@ export const taskListQuery = z.object({
   q: z.string().trim().max(100).optional(),
   dueFrom: isoDate.optional(),
   dueTo: isoDate.optional(),
+  /** "true" = exclude DONE and CANCELLED */
+  open: z.enum(["true", "false"]).optional(),
+  /** "true" = only tasks owned by or shared with the caller */
+  mine: z.enum(["true", "false"]).optional(),
   page: z.coerce.number().int().min(1).max(10000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });

@@ -329,6 +329,10 @@ export async function listTasks(db: Db, ctx: AuthContext, query: unknown) {
   if (q.q) where.push(ilike(tasks.title, `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`));
   if (q.dueFrom) where.push(gte(tasks.dueDate, q.dueFrom));
   if (q.dueTo) where.push(lte(tasks.dueDate, q.dueTo));
+  if (q.open === "true") where.push(notInArray(tasks.status, ["DONE", "CANCELLED"]));
+  if (q.mine === "true") {
+    where.push(or(eq(tasks.ownerUserId, ctx.userId), sql`exists (select 1 from task_collaborators c where c.task_id = ${tasks.id} and c.user_id = ${ctx.userId})`)!);
+  }
   const base = db.select(listSelect).from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId));
   const [rows, [total]] = await Promise.all([
     base

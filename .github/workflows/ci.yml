@@ -1,0 +1,45 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: projectos, POSTGRES_PASSWORD: ci_only_password, POSTGRES_DB: projectos }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U projectos" --health-interval 5s --health-retries 20
+    env:
+      APP_MODE: DEVELOPMENT
+      DATABASE_URL: postgresql://projectos:ci_only_password@localhost:5432/projectos
+      TEST_DATABASE_URL: postgresql://projectos:ci_only_password@localhost:5432/projectos_test
+      # CI-only throwaway values; no real secrets are available to this workflow.
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
+      BETTER_AUTH_URL: http://localhost:3000
+      DEMO_PASSWORD: ci-only-demo-password-1234
+      AUTH_SIGNIN_MAX_PER_MIN: "1000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: psql postgresql://projectos:ci_only_password@localhost:5432/projectos -c "create database projectos_test"
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Migrations apply to a clean database
+        run: pnpm db:migrate
+      - run: pnpm test:integration
+      - run: pnpm db:seed
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-report, path: playwright-report, retention-days: 7 }

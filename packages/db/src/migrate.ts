@@ -1,7 +1,7 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDb, loadRootEnv } from "./index";
+import { createDb, isMain, loadRootEnv } from "./index";
 
 export const MIGRATIONS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
@@ -14,7 +14,7 @@ export async function runMigrations(url?: string) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   loadRootEnv();
   runMigrations()
     .then(() => console.log(JSON.stringify({ level: "info", msg: "migrations applied" })))
