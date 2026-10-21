@@ -4,7 +4,7 @@ import { payerPlans, payers, providerEnrollments } from "@projectos/db/schema";
 import type { AuthContext } from "@projectos/auth";
 import { audit, authorize, mapDbError, parse } from "@projectos/core";
 import { AppError, enrollmentCreate, enrollmentUpdate, enrollmentVerify, notFound, payerCreate, planCreate, versionConflict } from "@projectos/shared";
-import { canOnPractitioner, dualControlEnabled, loadPractitioner } from "./access";
+import { canOnPractitioner, dualControlEnabled, loadPractitioner, requestRescreen } from "./access";
 
 export async function listPayers(db: Db, ctx: AuthContext) {
   await authorize(db, ctx, "credentialing.read", "ANY");
@@ -105,7 +105,7 @@ export async function updateEnrollment(db: Db, ctx: AuthContext, id: string, inp
     ]);
   }
   if (d.status === "TERMINATED" && !d.terminatedOn) throw new AppError("VALIDATION_FAILED", "Termination date is required.", [{ code: "TERMINATION_DATE", field: "terminatedOn" }]);
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(providerEnrollments)
       .set({ ...d, statusSetBy: ctx.userId, verifiedBy: null, verifiedAt: null, verificationSource: null, version: version + 1 })
@@ -115,6 +115,8 @@ export async function updateEnrollment(db: Db, ctx: AuthContext, id: string, inp
     await audit(tx, ctx, { action: "enrollment.update", resourceType: "enrollment", resourceId: id, metadata: { from: e.status, to: d.status } });
     return row;
   });
+  await requestRescreen(db, ctx.organizationId, `enrollment:${id}:${version + 1}`, e.practitionerId);
+  return updated;
 }
 
 export async function verifyEnrollment(db: Db, ctx: AuthContext, id: string, input: unknown) {
@@ -127,7 +129,7 @@ export async function verifyEnrollment(db: Db, ctx: AuthContext, id: string, inp
     await audit(db, ctx, { action: "enrollment.verify", resourceType: "enrollment", resourceId: id, outcome: "DENY", metadata: { reason: "dual_control" } });
     throw new AppError("FORBIDDEN", "Dual control: someone other than the person who recorded the approval must verify it.");
   }
-  return db.transaction(async (tx) => {
+  const verified = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(providerEnrollments)
       .set({ verifiedBy: ctx.userId, verifiedAt: new Date(), verificationSource: d.sourceName, version: d.version + 1 })
@@ -137,4 +139,6 @@ export async function verifyEnrollment(db: Db, ctx: AuthContext, id: string, inp
     await audit(tx, ctx, { action: "enrollment.verify", resourceType: "enrollment", resourceId: id });
     return row;
   });
+  await requestRescreen(db, ctx.organizationId, `enrollment:${id}:${d.version + 1}`, e.practitionerId);
+  return verified;
 }

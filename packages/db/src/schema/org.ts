@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, orgId, updatedAt, version } from "./_common";
 import { users } from "./auth";
 
@@ -29,6 +29,10 @@ export const sites = pgTable(
     addressLine1: text("address_line1"),
     city: text("city"),
     postalCode: text("postal_code"),
+    /** ADR-0003 per-site source of truth: DEMO | STANDALONE_APPROVED | EHR_MASTER | READ_ONLY. */
+    ehrSyncMode: text("ehr_sync_mode").notNull().default("DEMO"),
+    ehrLastSyncedAt: timestamp("ehr_last_synced_at", { withTimezone: true }),
+    ehrFreshnessMinutes: integer("ehr_freshness_minutes").notNull().default(60),
     active: boolean("active").notNull().default(true),
     createdBy: uuid("created_by"),
     createdAt: createdAt(),
@@ -39,6 +43,7 @@ export const sites = pgTable(
     unique("sites_org_code_uq").on(t.organizationId, t.code),
     unique("sites_org_id_uq").on(t.organizationId, t.id),
     check("sites_state_len", sql`char_length(${t.state}) = 2`),
+    check("sites_ehr_mode_ck", sql`${t.ehrSyncMode} in ('DEMO','STANDALONE_APPROVED','EHR_MASTER','READ_ONLY')`),
   ],
 );
 

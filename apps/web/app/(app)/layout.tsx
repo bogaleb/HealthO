@@ -35,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/scheduling/calendar", label: "Schedule", icon: "calendar" },
         { href: "/scheduling/find", label: "Find Appointment", icon: "find" },
         ...(hasAny(ctx, "scheduling.manage") ? [{ href: "/scheduling/appointments/new", label: "New Appointment", icon: "book" } as NavItem] : []),
+        { href: "/scheduling/waitlist", label: "Waitlist", icon: "waitlist" },
         { href: "/scheduling/setup", label: "Scheduling Setup", icon: "setup" },
       ]
     : [];

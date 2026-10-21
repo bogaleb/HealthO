@@ -50,6 +50,20 @@
       "when": 1792601806198,
       "tag": "0006_scheduling_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792605050807,
+      "tag": "0007_eligibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792605052342,
+      "tag": "0008_eligibility_guards",
+      "breakpoints": true
     }
   ]
 }

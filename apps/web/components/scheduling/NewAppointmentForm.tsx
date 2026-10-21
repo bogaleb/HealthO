@@ -2,16 +2,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { localDate, MODALITIES, MODALITY_LABEL, resolveLocal, toZonedIso, US_JURISDICTIONS, zoneAbbreviation, type Modality } from "@projectos/shared";
-import { Button, ErrorState, Field, Input, Select } from "@projectos/ui";
+import { Button, ErrorState, Field, Input, Select, Spinner } from "@projectos/ui";
 import { ApiError, apiFetch, errorMessage } from "@/lib/client";
 import { formatSlot } from "@/lib/format";
 import { PatientPicker, type PickedPatient } from "./PatientPicker";
-import { PolicyPendingBadge } from "./PolicyPending";
+import { EligibilityPanel, type EligibilityLike } from "./Eligibility";
 
 type Ref = {
   sites: { id: string; code: string; name: string; state: string; timezone: string }[];
   appointmentTypes: { id: string; name: string; durationMinutes: number; modalities: string[]; active: boolean }[];
   practitioners: { id: string; displayName: string; siteIds: string[] }[];
+  payerPlans: { id: string; name: string; payerName: string }[];
 };
 type Hold = {
   id: string;
@@ -31,21 +32,21 @@ type Hold = {
   status: string;
 };
 
-function newKey() {
-  return `appt-${crypto.randomUUID()}`;
-}
+const newKey = () => `appt-${crypto.randomUUID()}`;
 
 export function NewAppointmentForm({
   refData,
   hold,
   initialState,
   initialPatient,
+  initialPlan,
   today,
 }: {
   refData: Ref;
   hold: Hold | null;
   initialState?: string;
   initialPatient?: PickedPatient | null;
+  initialPlan?: string;
   today: string;
 }) {
   const router = useRouter();
@@ -53,8 +54,9 @@ export function NewAppointmentForm({
   const [patient, setPatient] = useState<PickedPatient | null>(initialPatient ?? null);
   const [locState, setLocState] = useState(initialState ?? (hold?.modality === "IN_PERSON" ? hold.siteState : ""));
   const [locStatus, setLocStatus] = useState("PROPOSED");
+  const [payerPlanId, setPayerPlanId] = useState(initialPlan ?? "");
   const [err, setErr] = useState<string | null>(null);
-  const [alts, setAlts] = useState<{ startAt: string; label: string }[]>([]);
+  const [alts, setAlts] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   // One idempotency key per intended booking: double-clicks and network retries can never create two appointments.
   const key = useRef(newKey());
@@ -84,52 +86,81 @@ export function NewAppointmentForm({
   const secondsLeft = hold ? Math.max(0, Math.floor((new Date(hold.expiresAt).getTime() - nowMs) / 1000)) : 0;
   const holdExpired = !!hold && (secondsLeft <= 0 || hold.status !== "ACTIVE");
 
+  const target = useMemo(() => {
+    if (hold) return { practitionerId: hold.practitionerId, siteId: hold.siteId, appointmentTypeId: hold.appointmentTypeId, modality: hold.modality, startAt: hold.startAt };
+    if (!practitionerId || !manualStart || !site) return null;
+    return { practitionerId, siteId, appointmentTypeId: typeId, modality, startAt: toZonedIso(manualStart, site.timezone) };
+  }, [hold, practitionerId, manualStart, site, siteId, typeId, modality]);
+
+  // Live eligibility preview — the same server function the booking transaction runs.
+  const [preview, setPreview] = useState<(EligibilityLike & { canConfirm: boolean }) | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => {
+    if (!target) {
+      setPreview(null);
+      return;
+    }
+    let live = true;
+    const t = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const r = await apiFetch<EligibilityLike & { canConfirm: boolean }>("/api/v1/scheduling/evaluate", {
+          method: "POST",
+          body: { ...target, ...(hold ? { holdId: hold.id } : {}), patientLocationState: locState || null, patientLocationStatus: locStatus, payerPlanId: payerPlanId || null },
+        });
+        if (live) setPreview(r);
+      } catch {
+        if (live) setPreview(null);
+      } finally {
+        if (live) setPreviewing(false);
+      }
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [target, hold, locState, locStatus, payerPlanId]);
+
+  const decision = preview?.decision;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     setAlts([]);
     if (!patient) return setErr("Choose or create a patient.");
-    if (!locState) return setErr("Enter the patient's location (state) at the time of the visit.");
-    let body: Record<string, unknown>;
-    if (hold) {
-      body = {
-        holdId: hold.id,
-        practitionerId: hold.practitionerId,
-        siteId: hold.siteId,
-        appointmentTypeId: hold.appointmentTypeId,
-        modality: hold.modality,
-        startAt: hold.startAt,
-      };
-    } else {
-      if (!practitionerId) return setErr("Choose a provider.");
-      if (!manualStart || !site) return setErr("That local time does not exist on this date (daylight-saving change). Choose another time.");
-      body = { practitionerId, siteId, appointmentTypeId: typeId, modality, startAt: toZonedIso(manualStart, site.timezone) };
-    }
+    if (!target) return setErr(hold ? "Hold missing." : "Choose a provider and a valid local time (daylight-saving gaps do not exist).");
     setBusy(true);
     try {
       const a = await apiFetch<{ id: string; startAt: string; timezone: string; siteId: string }>("/api/v1/appointments", {
         method: "POST",
         headers: { "Idempotency-Key": key.current },
-        body: { ...body, patientId: patient.id, patientLocationState: locState, patientLocationStatus: locStatus },
+        body: {
+          ...target,
+          ...(hold ? { holdId: hold.id } : {}),
+          patientId: patient.id,
+          patientLocationState: locState || null,
+          patientLocationStatus: locStatus,
+          payerPlanId: payerPlanId || null,
+          acceptPendingReview: decision === "REVIEW",
+        },
       });
       router.push(`/scheduling/calendar?date=${localDate(new Date(a.startAt), a.timezone)}&siteId=${a.siteId}&appt=${a.id}`);
     } catch (x) {
       key.current = newKey(); // a failed attempt may be retried as a new booking
       setErr(errorMessage(x));
-      if (x instanceof ApiError) setAlts(x.details.filter((d) => d.code === "ALTERNATIVE").map((d) => ({ startAt: d.field!, label: d.message! })));
+      if (x instanceof ApiError) setAlts(x.details.filter((d) => d.code === "ALTERNATIVE" || d.code === "ELIGIBLE_ALTERNATIVE").map((d) => d.message!));
       setBusy(false);
     }
   };
 
   return (
-    <form method="post" onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_22rem]" aria-label="New appointment">
+    <form method="post" onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_24rem]" aria-label="New appointment">
       <div className="space-y-5">
         {err && (
           <div>
             <ErrorState title="Not booked" message={err} />
             {alts.length > 0 && (
               <p className="mt-1 text-[13px] text-slate-700">
-                Other times with this provider: {alts.map((a) => a.label).join(", ")}. Use{" "}
+                Eligible alternatives: {alts.join("; ")}. Use{" "}
                 <a href="/scheduling/find" className="text-teal-800 underline">
                   Find appointment
                 </a>{" "}
@@ -151,7 +182,7 @@ export function NewAppointmentForm({
                 <strong>{formatSlot(hold.startAt, hold.timezone)}</strong> – {formatSlot(hold.endAt, hold.timezone, { date: false })} with {hold.practitionerName} at{" "}
                 {hold.siteName} ({hold.siteCode}, {hold.siteState}) · {MODALITY_LABEL[hold.modality]} · {types.find((t) => t.id === hold.appointmentTypeId)?.name}
               </p>
-              <p className={holdExpired ? "mt-1 font-medium text-red-700" : "mt-1 text-slate-600"} role="status" aria-live="polite">
+              <p className={holdExpired ? "mt-1 font-medium text-red-700" : "mt-1 text-slate-600"} aria-live="polite">
                 {holdExpired
                   ? "This hold has expired. Go back and search again."
                   : `Held for you for ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")} more (others cannot book it meanwhile).`}
@@ -237,7 +268,7 @@ export function NewAppointmentForm({
                   </fieldset>
                 )}
                 {resolution?.kind === "ok" && site && (
-                  <p className="text-slate-600">= {toZonedIso(resolution.instant, site.timezone)} (validated on the server inside the booking transaction)</p>
+                  <p className="text-slate-600">= {toZonedIso(resolution.instant, site.timezone)} (re-validated on the server inside the booking transaction)</p>
                 )}
               </div>
             </div>
@@ -245,14 +276,15 @@ export function NewAppointmentForm({
         </section>
 
         <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="text-[15px] font-semibold">3. Patient location at the time of the visit</h2>
+          <h2 className="text-[15px] font-semibold">3. Patient location at the time of the visit, and payer</h2>
           <p className="text-[12.5px] text-slate-600">
-            Record where the patient will physically be. Home address, mailing address and phone area code do not count. It is re-checked at check-in in a later phase.
+            Record where the patient will physically be — it decides which license applies. Home address, mailing address and phone area code do not count. It is re-checked at
+            check-in.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="State / territory *" htmlFor="na-loc">
-              <Select id="na-loc" value={locState} required onChange={(e) => setLocState(e.target.value)}>
-                <option value="">Choose…</option>
+            <Field label="State / territory" htmlFor="na-loc">
+              <Select id="na-loc" value={locState} onChange={(e) => setLocState(e.target.value)}>
+                <option value="">Unknown</option>
                 {US_JURISDICTIONS.map((j) => (
                   <option key={j} value={j}>
                     {j}
@@ -266,25 +298,34 @@ export function NewAppointmentForm({
                 <option value="VERIFIED">Confirmed with the patient today (verified)</option>
               </Select>
             </Field>
+            <Field label="Payer plan" htmlFor="na-plan" className="col-span-2">
+              <Select id="na-plan" value={payerPlanId} onChange={(e) => setPayerPlanId(e.target.value)}>
+                <option value="">Self-pay / not specified</option>
+                {refData.payerPlans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.payerName.replace(/ \(SYNTHETIC\)$/, "")} — {p.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
           {patient?.homeState && locState && patient.homeState !== locState && (
-            <p className="text-[12.5px] text-amber-900">
-              Note: different from the patient&apos;s home state ({patient.homeState}). That is fine — the visit location is what matters.
-            </p>
+            <p className="text-[12.5px] text-amber-900">Different from the patient&apos;s home state ({patient.homeState}) — the visit location is what counts.</p>
           )}
         </section>
       </div>
 
       <aside className="space-y-3 lg:sticky lg:top-12 lg:self-start">
         <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
-          <h2 className="text-[15px] font-semibold">Book</h2>
-          <PolicyPendingBadge />
-          <p className="text-[12.5px] text-slate-600">
-            The server re-checks working hours, time off, closures, rooms and conflicts in one transaction. Licensure and payer eligibility are not evaluated until Phase 5.
-          </p>
-          <Button type="submit" loading={busy} disabled={holdExpired} className="w-full">
-            Book synthetic appointment
+          <h2 className="text-[15px] font-semibold">Eligibility</h2>
+          {!target && <p className="text-[12.5px] text-slate-500">Choose a provider and time to evaluate.</p>}
+          {target && previewing && !preview && <Spinner label="Evaluating" />}
+          {preview && <EligibilityPanel e={preview} />}
+          <p className="text-[12px] text-slate-500">The server re-runs this evaluation inside the booking transaction; the stored result is what counts.</p>
+          <Button type="submit" loading={busy} disabled={holdExpired || !decision || decision === "BLOCK"} className="w-full">
+            {decision === "REVIEW" ? "Save as pending review (not confirmed)" : "Book appointment"}
           </Button>
+          {decision === "BLOCK" && <p className="text-[12.5px] font-medium text-red-800">Blocked — this combination cannot be booked. Choose another provider, time or payer.</p>}
           {hold && !holdExpired && (
             <Button
               variant="secondary"

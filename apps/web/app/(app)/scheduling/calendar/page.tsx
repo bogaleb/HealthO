@@ -11,7 +11,8 @@ import { APPT_STATUS_TONE, formatDay, formatSlot } from "@/lib/format";
 import { Forbidden } from "@/components/Forbidden";
 import { CalendarGrid } from "@/components/scheduling/CalendarGrid";
 import { AppointmentDrawer } from "@/components/scheduling/AppointmentDrawer";
-import { SchedulingDemoNote } from "@/components/scheduling/PolicyPending";
+import { DecisionBadge } from "@/components/scheduling/Eligibility";
+import { SchedulingDemoNote } from "@/components/scheduling/DemoNote";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -138,6 +139,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           <span className="h-3 w-3 rounded-sm border-l-4 border-blue-600 bg-blue-50" /> Booked
         </li>
         <li className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm border-l-4 border-amber-600 bg-amber-50" /> Pending review
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm border-l-4 border-red-700 bg-red-50" /> Needs reschedule
+        </li>
+        <li className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-sm border-l-4 border-teal-600 bg-teal-50" /> Checked in
         </li>
         <li className="flex items-center gap-1.5">
@@ -163,6 +170,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                 <th className="py-2 pr-3 font-medium">Type</th>
                 <th className="py-2 pr-3 font-medium">Where</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium">Eligibility</th>
               </tr>
             </thead>
             <tbody>
@@ -182,6 +190,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   </td>
                   <td className="py-1.5 pr-3">
                     <Badge tone={APPT_STATUS_TONE[a.status]}>{APPOINTMENT_STATUS_LABEL[a.status as AppointmentStatus]}</Badge>
+                  </td>
+                  <td className="py-1.5 pr-3">
+                    <DecisionBadge decision={a.eligibilityDecision as "ALLOW" | "REVIEW" | "BLOCK" | null} />
                   </td>
                 </tr>
               ))}

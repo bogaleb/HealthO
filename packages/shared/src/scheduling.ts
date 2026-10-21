@@ -23,8 +23,9 @@ export const APPOINTMENT_STATUS_LABEL: Record<AppointmentStatus, string> = {
   NEEDS_RESCHEDULE: "Needs reschedule",
 };
 /** Allowed manual status transitions (cancel and reschedule have their own endpoints). */
+/** CHECKED_IN is reached only through the check-in endpoint (it re-evaluates eligibility with the confirmed location). */
 export const STATUS_TRANSITIONS: Partial<Record<AppointmentStatus, AppointmentStatus[]>> = {
-  CONFIRMED: ["CHECKED_IN", "NO_SHOW"],
+  CONFIRMED: ["NO_SHOW"],
   CHECKED_IN: ["COMPLETED"],
   NEEDS_RESCHEDULE: [],
 };
@@ -126,7 +127,12 @@ export const slotSearch = z.object({
   practitionerId: uuid.optional(),
   fromDate: iso,
   days: z.coerce.number().int().min(1).max(MAX_SEARCH_DAYS).default(7),
+  /** Where the patient will physically be at visit time (required to evaluate video/audio eligibility). */
   patientState: z.enum(US_JURISDICTIONS).optional(),
+  patientLocationStatus: z.enum(["PROPOSED", "VERIFIED"]).default("PROPOSED"),
+  payerPlanId: uuid.nullable().optional(),
+  /** eligible = ALLOW only (default); all = include REVIEW/BLOCK times with their explanations. */
+  show: z.enum(["eligible", "all"]).default("eligible"),
   limitPerDay: z.coerce.number().int().min(1).max(200).default(40),
 });
 
@@ -139,14 +145,22 @@ const slotTarget = {
   roomId: uuid.nullable().optional(),
 };
 
-export const holdCreate = z.object(slotTarget);
+export const holdCreate = z.object({
+  ...slotTarget,
+  patientLocationState: z.enum(US_JURISDICTIONS).nullable().optional(),
+  payerPlanId: uuid.nullable().optional(),
+});
 
 export const appointmentCreate = z.object({
   ...slotTarget,
   patientId: uuid,
   holdId: uuid.optional(),
-  patientLocationState: z.enum(US_JURISDICTIONS),
+  /** Null/omitted = unknown (video/audio visits then need review and cannot be confirmed). */
+  patientLocationState: z.enum(US_JURISDICTIONS).nullable().optional(),
   patientLocationStatus: z.enum(LOCATION_STATUSES).default("PROPOSED"),
+  payerPlanId: uuid.nullable().optional(),
+  /** Explicitly save a REVIEW result as a PENDING (unconfirmed) appointment that holds the time for staff review. */
+  acceptPendingReview: z.boolean().default(false),
 });
 
 export const appointmentReschedule = z.object({
@@ -156,6 +170,7 @@ export const appointmentReschedule = z.object({
   siteId: uuid.optional(),
   roomId: uuid.nullable().optional(),
   reason: text(300),
+  acceptPendingReview: z.boolean().default(false),
 });
 
 export const appointmentCancel = z.object({ version: z.number().int(), reason: text(300) });

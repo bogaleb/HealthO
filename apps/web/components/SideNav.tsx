@@ -15,6 +15,7 @@ import {
   Scale,
   ScrollText,
   Search,
+  ListOrdered,
   Settings2,
   Stethoscope,
   Users,
@@ -38,6 +39,7 @@ const ICONS = {
   find: Search,
   book: CalendarPlus,
   setup: Settings2,
+  waitlist: ListOrdered,
 };
 export interface NavItem {
   href: string;
@@ -88,7 +90,7 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
         ))}
       <div className="mt-auto rounded-md border border-white/10 px-2.5 py-2 text-[11.5px] leading-snug text-slate-400">
         <p className="font-semibold text-slate-300">Not built yet</p>
-        <p className="mt-0.5">License-aware booking eligibility (Phase 5) and revenue-cycle queues (Phase 6).</p>
+        <p className="mt-0.5">Revenue-cycle queues and reporting (Phase 6), EHR integration (Phase 7).</p>
       </div>
     </nav>
   );

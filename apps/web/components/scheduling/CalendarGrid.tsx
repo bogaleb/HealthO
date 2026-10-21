@@ -29,11 +29,11 @@ type Cal = {
 const PX = 1.1; // pixels per minute
 const STATUS_STYLE: Record<string, string> = {
   CONFIRMED: "border-blue-600 bg-blue-50 text-blue-950",
-  PENDING: "border-amber-600 bg-amber-50 text-amber-950",
+  PENDING: "border-amber-600 border-dashed bg-amber-50 text-amber-950",
   CHECKED_IN: "border-teal-600 bg-teal-50 text-teal-950",
   COMPLETED: "border-green-700 bg-green-50 text-green-950",
   NO_SHOW: "border-red-600 bg-red-50 text-red-950",
-  NEEDS_RESCHEDULE: "border-amber-600 bg-amber-100 text-amber-950",
+  NEEDS_RESCHEDULE: "border-red-700 bg-red-50 text-red-950 [background-image:repeating-linear-gradient(135deg,transparent_0,transparent_6px,#fecaca_6px,#fecaca_8px)]",
 };
 
 const d = (x: Date | string) => (typeof x === "string" ? new Date(x) : x);

@@ -15,34 +15,36 @@ test("Phase 4: scheduler finds a slot, holds it, books a synthetic patient, sees
   await login(page, USERS.scheduler); // scheduler role scoped to site ALX
   await page.goto("/scheduling/find");
   await settle(page);
-  await expect(page.getByRole("note").filter({ hasText: "policy pending" })).toBeVisible();
+  await expect(page.getByRole("note").filter({ hasText: "NOT VERIFIED LAW" })).toBeVisible();
   await page.getByLabel("Appointment type *").selectOption({ label: "Follow-up — primary care (20 min)" });
   await page.getByLabel("Site").selectOption({ label: "ALX — Alexandria Family Clinic (VA)" });
   await page.getByLabel("Provider").selectOption({ label: "Practitioner A — Dr. Alder" });
   await page.getByLabel("From date *").fill(day(2));
   await page.getByRole("button", { name: "Search" }).click();
-  await expect(page.getByText("Eligibility: policy pending").first()).toBeVisible();
+  await expect(page.getByTestId("slot-row").first()).toContainText("Eligible to book");
   const slot = page.getByTestId("slot").nth(3);
   const label = (await slot.getAttribute("aria-label")) ?? "";
-  expect(label).toMatch(/^Hold .* (EDT|EST) with Practitioner A/);
+  expect(label).toMatch(/^Hold .* (EDT|EST) with Practitioner A.* — eligible$/);
   await slot.click();
   await expect(page).toHaveURL(/\/scheduling\/appointments\/new\?hold=/);
   await settle(page);
   await expect(page.getByTestId("hold-summary")).toContainText("Practitioner A");
-  await expect(page.getByRole("status")).toContainText("Held for you");
+  await expect(page.getByTestId("hold-summary")).toContainText("Held for you");
 
   await page.getByRole("searchbox").fill("Demo Patient 05");
   await page.getByRole("list", { name: "Matching patients" }).getByRole("button").first().click();
   await expect(page.getByTestId("picked-patient")).toContainText("DEMO-0005");
-  await expect(page.getByLabel("State / territory *")).toHaveValue("VA"); // in person → site state proposed
-  await page.getByRole("button", { name: "Book synthetic appointment" }).click();
+  await expect(page.getByLabel("State / territory")).toHaveValue("VA"); // in person → site state proposed
+  await expect(page.getByTestId("eligibility-panel")).toContainText("Eligible to book");
+  await page.getByRole("button", { name: "Book appointment" }).click();
 
   await expect(page).toHaveURL(/\/scheduling\/calendar\?.*appt=/);
   const drawer = page.getByTestId("appointment-drawer");
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText("Demo Patient 05");
   await expect(drawer).toContainText("Booked");
-  await expect(drawer).toContainText("Eligibility: policy pending");
+  await expect(drawer.getByTestId("eligibility-panel")).toContainText("Eligible to book");
+  await expect(drawer.getByTestId("eligibility-panel")).toContainText("VA-PHYSICIAN-IN_PERSON");
   await expect(drawer).toContainText("booked by Sam Ortiz");
 
   await drawer.getByRole("button", { name: "Cancel appointment" }).click();
@@ -169,4 +171,64 @@ test("scheduling setup: manager adds provider time off (flagged, nothing cancell
   await expect(p2.getByRole("button", { name: "Add working hours" })).toHaveCount(0);
   await expect(p2.locator(ALERT)).toHaveCount(0);
   await other.close();
+});
+
+test("Phase 5: patient physically in DC (no approved DC policy for physicians) → not offered; review time saved as PENDING (never confirmed); location change re-checks", async ({
+  page,
+}) => {
+  await login(page, USERS.admin);
+  await page.goto("/scheduling/find");
+  await settle(page);
+  await page.getByLabel("Appointment type *").selectOption({ label: "New patient — primary care (40 min)" });
+  await page.getByLabel("Modality *").selectOption("VIDEO");
+  await page.getByLabel("Site").selectOption({ label: "ALX — Alexandria Family Clinic (VA)" });
+  await page.getByLabel(/Patient location at visit time/).selectOption("DC");
+  await page.getByLabel("From date *").fill(day(3));
+  await page.getByRole("button", { name: "Search" }).click();
+  const notOffered = page.getByTestId("not-offered");
+  await expect(notOffered).toContainText("Practitioner A");
+  await expect(notOffered).toContainText("No compliance-approved rule covers PHYSICIAN · DC");
+  await expect(page.getByTestId("slot")).toHaveCount(0);
+
+  await page.getByLabel(/Also show times that need review/).check();
+  const reviewSlot = page.locator('[data-testid="slot"][data-decision="REVIEW"]').first();
+  await expect(reviewSlot).toBeVisible();
+  await reviewSlot.click();
+  await expect(page).toHaveURL(/appointments\/new\?hold=/);
+  await settle(page);
+  await expect(page.getByTestId("eligibility-panel")).toContainText("Needs review");
+  await expect(page.getByTestId("eligibility-panel")).toContainText("POLICY_UNAVAILABLE");
+  await page.getByRole("searchbox").fill("Demo Patient 09");
+  await page.getByRole("list", { name: "Matching patients" }).getByRole("button").first().click();
+  await page.getByRole("button", { name: "Save as pending review (not confirmed)" }).click();
+  await expect(page).toHaveURL(/scheduling\/calendar\?.*appt=/);
+  const drawer = page.getByTestId("appointment-drawer");
+  await expect(drawer).toContainText("Pending — not confirmed");
+  await drawer.getByRole("button", { name: "Confirm booking" }).click();
+  await expect(drawer.locator(ALERT)).toContainText("stays pending");
+
+  // The patient will actually be in VA (verified) → re-check is eligible → staff confirm.
+  await drawer.getByRole("button", { name: "Change patient location" }).click();
+  await drawer.getByLabel("Patient location at visit time *").selectOption("VA");
+  await drawer.getByLabel(/Confirmed with the patient/).check();
+  await drawer.getByRole("button", { name: "Save and re-check" }).click();
+  await expect(drawer.getByTestId("eligibility-panel")).toContainText("Eligible to book");
+  await expect(drawer).toContainText("Pending — not confirmed"); // never auto-confirmed
+  await drawer.getByRole("button", { name: "Confirm booking" }).click();
+  await expect(drawer.getByText("Booked", { exact: true })).toBeVisible();
+  await expect(drawer).toContainText("confirm");
+});
+
+test("Phase 5: waitlist — offer an eligible time and book it on acceptance", async ({ page }) => {
+  await login(page, USERS.admin);
+  await page.goto("/scheduling/waitlist");
+  await settle(page);
+  const entry = page.getByTestId("waitlist-entry").first();
+  await expect(entry).toContainText("Demo Patient 06");
+  await entry.getByRole("button", { name: "Find & offer eligible time" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Offer created" })).toBeVisible();
+  await expect(entry.getByTestId("waitlist-offer").first()).toContainText("offered");
+  await entry.getByRole("button", { name: "Patient accepted — book" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "booked after a fresh eligibility check" })).toBeVisible();
+  await expect(page.getByTestId("waitlist-entry").filter({ hasText: "Demo Patient 06" })).toHaveCount(0);
 });

@@ -9,6 +9,7 @@ import { createAppointmentType, createException, createRoom, createTemplate } fr
 import { createPatient } from "./patients";
 import { searchSlots } from "./availability";
 import { createAppointment } from "./booking";
+import { createWaitlistEntry } from "./waitlist";
 
 /** SYNTHETIC scheduling demo data: fictional patients DEMO-0001…, working hours, rooms, a few bookings. */
 export const SCHED_USERS = { manager: { email: "quinn.park@riverbend.example", name: "Quinn Park (Demo)" } } as const;
@@ -172,11 +173,35 @@ export async function seedScheduling(db: Db, password: string, slug = "riverbend
   }
 
   // A few bookings over the next working days, chosen from real search results so they are valid.
+  // A few bookings over the next working days, chosen from real eligible search results (Phase 5 rules apply).
   let booked = 0;
-  const book = async (p: string, s: string, typeId: string, modality: "IN_PERSON" | "VIDEO", picks: number[], startDate: string) => {
+  const book = async (
+    p: string,
+    s: string,
+    typeId: string,
+    modality: "IN_PERSON" | "VIDEO",
+    picks: number[],
+    startDate: string,
+    o: { location?: string; acceptPendingReview?: boolean } = {},
+  ) => {
     for (const i of picks) {
       // Search again after each booking: grid slots overlap each other (15-min step), so stale results would clash.
-      const r = await searchSlots(db, admin, { appointmentTypeId: typeId, modality, siteId: site(s), practitionerId: prov(p), fromDate: startDate, days: 5 }, now);
+      const patientState = modality === "IN_PERSON" ? siteRows.find((x) => x.id === site(s))!.state : (o.location ?? "VA");
+      const r = await searchSlots(
+        db,
+        admin,
+        {
+          appointmentTypeId: typeId,
+          modality,
+          siteId: site(s),
+          practitionerId: prov(p),
+          fromDate: startDate,
+          days: 5,
+          patientState,
+          show: o.acceptPendingReview ? "all" : "eligible",
+        },
+        now,
+      );
       const slot = r.slots[i];
       if (!slot) continue;
       const patient = pts[booked % pts.length]!;
@@ -190,8 +215,9 @@ export async function seedScheduling(db: Db, password: string, slug = "riverbend
           modality,
           startAt: slot.startAt,
           patientId: patient.id,
-          patientLocationState: modality === "IN_PERSON" ? siteRows.find((x) => x.id === slot.siteId)!.state : (patient.homeState ?? "VA"),
+          patientLocationState: patientState,
           patientLocationStatus: "PROPOSED",
+          acceptPendingReview: !!o.acceptPendingReview,
         },
         { now },
       );
@@ -200,11 +226,32 @@ export async function seedScheduling(db: Db, password: string, slug = "riverbend
   };
   const start = addDays(today, 1);
   await book("A", "ALX", types.PC_FU!.id, "IN_PERSON", [0, 3, 7, 12], start);
-  await book("A", "ALX", types.PC_NEW!.id, "VIDEO", [20, 30], start);
-  await book("C", "NEDC", types.BH_THERAPY!.id, "IN_PERSON", [0, 2, 9], start);
-  await book("C", "NEDC", types.BH_THERAPY!.id, "VIDEO", [5, 14], start);
-  await book("G", "SSP", types.PC_FU!.id, "IN_PERSON", [1, 4, 10], start);
-  await book("D", "ALX", types.BH_THERAPY!.id, "VIDEO", [1, 6], start);
+  await book("A", "ALX", types.PC_NEW!.id, "VIDEO", [20], start, { location: "VA" });
+  // Fixture B/C: VA-only physician, patient physically in MD for a video visit → saved PENDING for review (not confirmed).
+  await book("A", "ALX", types.PC_NEW!.id, "VIDEO", [30], start, { location: "MD", acceptPendingReview: true });
+  await book("C", "NEDC", types.BH_THERAPY!.id, "VIDEO", [0, 5, 14], start, { location: "VA" });
+  await book("D", "SSP", types.BH_THERAPY!.id, "IN_PERSON", [1, 4], start);
+  await book("D", "ALX", types.BH_THERAPY!.id, "VIDEO", [1, 6], start, { location: "MD" });
+
+  // Fixture J: NEDC's master schedule lives in an EHR that has not synchronized recently (adapter is a stub).
+  await db
+    .update(sites)
+    .set({ ehrSyncMode: "EHR_MASTER", ehrLastSyncedAt: new Date(now.getTime() - 3 * 3600_000), ehrFreshnessMinutes: 60 })
+    .where(eq(sites.id, site("NEDC")));
+
+  // A waitlist request: Tue–Fri after 2 PM, behavioral follow-up by video, patient in VA.
+  await createWaitlistEntry(db, admin, {
+    patientId: pts[5]!.id,
+    appointmentTypeId: types.BH_THERAPY!.id,
+    modality: "VIDEO",
+    patientLocationState: "VA",
+    earliestDate: start,
+    latestDate: addDays(start, 13),
+    weekdays: [2, 3, 4, 5],
+    afterTime: "14:00",
+    priority: 1,
+    note: "Prefers afternoons (synthetic)",
+  });
   return { skipped: false as const, appointmentTypes: Object.keys(types).length, patients: pts.length, appointments: booked };
 }
 

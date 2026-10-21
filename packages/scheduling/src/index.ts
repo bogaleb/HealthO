@@ -6,3 +6,6 @@ export * from "./availability";
 export * from "./booking";
 export * from "./holds-job";
 export * from "./queries";
+export * from "./eligibility";
+export * from "./followups";
+export * from "./waitlist";

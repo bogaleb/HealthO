@@ -2,7 +2,7 @@ import { and, eq, type SQL, sql } from "drizzle-orm";
 import { qualified, type Db, type DbOrTx } from "@projectos/db";
 import { organizations, practitionerSites, practitioners } from "@projectos/db/schema";
 import { can, scopeFilter, type AuthContext } from "@projectos/auth";
-import { authorize } from "@projectos/core";
+import { authorize, enqueueJob } from "@projectos/core";
 import { notFound, type Permission } from "@projectos/shared";
 
 /**
@@ -48,4 +48,12 @@ export async function loadPractitioner(db: Db, ctx: AuthContext, id: string, req
 export async function dualControlEnabled(db: DbOrTx, organizationId: string) {
   const [o] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, organizationId));
   return (o?.settings as { dualControl?: boolean } | undefined)?.dualControl !== false;
+}
+
+/**
+ * Evidence, policy or enrollment changed: ask the worker to re-screen upcoming bookings (Phase 5).
+ * Idempotent per change (key includes the new version); scheduling depends on credentialing, never the reverse.
+ */
+export async function requestRescreen(db: Db, organizationId: string, key: string, practitionerId?: string) {
+  await enqueueJob(db, "scheduling.rescreen", `rescreen:${key}`, { organizationId, ...(practitionerId ? { practitionerId } : {}) });
 }

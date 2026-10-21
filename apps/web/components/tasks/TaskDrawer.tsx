@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link2, Lock, Plus, Trash2, X } from "lucide-react";
 import { Badge, Button, Dialog, ErrorState, Field, Input, Select, Spinner, Textarea } from "@projectos/ui";
 import { TASK_PRIORITIES, TASK_STATUSES, TASK_STATUS_LABEL, type TaskStatus } from "@projectos/shared";
@@ -137,31 +137,41 @@ export function TaskDrawer({
   const [showDepPicker, setShowDepPicker] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!taskId) return;
-    setLoadError(null);
-    try {
-      const d = await apiFetch<Detail>(`/api/v1/tasks/${taskId}`);
-      setDetail(d);
-      setConflict(false);
-      setForm({
-        title: d.task.title,
-        description: d.task.description ?? "",
-        priority: d.task.priority,
-        ownerUserId: d.task.ownerUserId ?? "",
-        dueDate: d.task.dueDate ?? "",
-        labels: d.task.labels.join(", "),
-        collaboratorUserIds: d.collaborators.map((c) => c.userId),
-      });
-    } catch (e) {
-      setLoadError(e instanceof ApiError && e.status === 404 ? "This task no longer exists or you no longer have access." : errorMessage(e));
-    }
-  }, [taskId]);
+  // Last form values loaded from the server: edits in progress are kept when a side action (comment,
+  // checklist, dependency) reloads the task, instead of being silently overwritten.
+  const loadedForm = useRef<string>("");
+  const load = useCallback(
+    async (reset = false) => {
+      if (!taskId) return;
+      setLoadError(null);
+      try {
+        const d = await apiFetch<Detail>(`/api/v1/tasks/${taskId}`);
+        setDetail(d);
+        setConflict(false);
+        const fresh = {
+          title: d.task.title,
+          description: d.task.description ?? "",
+          priority: d.task.priority,
+          ownerUserId: d.task.ownerUserId ?? "",
+          dueDate: d.task.dueDate ?? "",
+          labels: d.task.labels.join(", "),
+          collaboratorUserIds: d.collaborators.map((c) => c.userId),
+        };
+        const previous = loadedForm.current; // capture now: the updater below runs later, after the ref changes
+        loadedForm.current = JSON.stringify(fresh);
+        setForm((prev) => (!reset && previous && JSON.stringify(prev) !== previous ? prev : fresh));
+      } catch (e) {
+        setLoadError(e instanceof ApiError && e.status === 404 ? "This task no longer exists or you no longer have access." : errorMessage(e));
+      }
+    },
+    [taskId],
+  );
 
   useEffect(() => {
     setDetail(null);
     setError(null);
     setShowDepPicker(false);
+    loadedForm.current = "";
     if (taskId) void load();
   }, [taskId, load]);
 
@@ -170,7 +180,7 @@ export function TaskDrawer({
     setError(null);
     try {
       await fn();
-      await load();
+      await load(label === "save");
       onChanged();
     } catch (e) {
       if (e instanceof ApiError && e.code === "VERSION_CONFLICT") setConflict(true);
@@ -217,7 +227,7 @@ export function TaskDrawer({
                 title="Someone else changed this task"
                 message="Your view is out of date. Reload to see the latest version, then re-apply your change."
                 action={
-                  <Button size="sm" variant="secondary" onClick={() => void load()}>
+                  <Button size="sm" variant="secondary" onClick={() => void load(true)}>
                     Reload task
                   </Button>
                 }

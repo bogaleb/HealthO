@@ -1,7 +1,7 @@
 import { createDb, loadRootEnv } from "@projectos/db";
 import { JOB_HANDLERS, enqueueJob, recoverStaleJobs, runDueJobs } from "@projectos/core";
 import { runCredentialDeadlines } from "@projectos/credentialing";
-import { releaseExpiredHolds } from "@projectos/scheduling";
+import { expireWaitlistOffers, releaseExpiredHolds, rescreenUpcoming } from "@projectos/scheduling";
 import { logger, todayIn } from "@projectos/shared";
 
 /**
@@ -15,6 +15,12 @@ const once = process.argv.includes("--once");
 const { db, sql } = createDb(undefined, 3);
 // Credential expiry + 90/60/30-day renewal tasks (idempotent; safe to run repeatedly).
 JOB_HANDLERS["credentialing.deadlines"] = (d, p) => runCredentialDeadlines(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
+// Phase 5: re-screen upcoming bookings when evidence/policy/enrollment changes (enqueued by credentialing) and hourly.
+JOB_HANDLERS["scheduling.rescreen"] = (d, p) =>
+  rescreenUpcoming(d, {
+    organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined,
+    practitionerId: typeof p.practitionerId === "string" ? p.practitionerId : undefined,
+  });
 let stopping = false;
 
 async function tick() {
@@ -26,6 +32,8 @@ async function tick() {
   // Explicit release of expired appointment holds: idempotent and SKIP LOCKED, so it runs directly every tick
   // (no job row per minute). Until it runs, an expired hold keeps blocking — never a silent double booking.
   const holds = await releaseExpiredHolds(db);
+  await expireWaitlistOffers(db);
+  await enqueueJob(db, "scheduling.rescreen", `scheduling.rescreen:${hour}`);
   const recovered = await recoverStaleJobs(db);
   const ran = await runDueJobs(db);
   if (ran || recovered || holds.released) logger.info("worker.tick", { ran, recovered, holdsReleased: holds.released });

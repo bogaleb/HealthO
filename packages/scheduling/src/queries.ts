@@ -2,6 +2,8 @@ import { and, asc, eq, gt, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@projectos/db";
 import {
+  eligibilityEvaluations,
+  payerPlans,
   appointmentEvents,
   appointmentHolds,
   appointmentTypes,
@@ -23,6 +25,34 @@ import { bookingEnabled, requireAnywhere, siteScope } from "./access";
 import { expandTemplates } from "./slots";
 
 const RESTRICTED = "Patient (restricted)";
+
+/**
+ * Latest persisted evaluation + whether it is stale. UI and API both read this object, so "stale" means the
+ * same thing everywhere: older than EVALUATION_TTL_MINUTES → re-check before relying on it.
+ */
+async function eligibilityView(db: Db, organizationId: string, appointmentId: string, latestId: string | null, now = new Date()) {
+  const history = await db
+    .select({
+      id: eligibilityEvaluations.id,
+      trigger: eligibilityEvaluations.trigger,
+      decision: eligibilityEvaluations.decision,
+      jurisdiction: eligibilityEvaluations.jurisdiction,
+      evaluatedAt: eligibilityEvaluations.evaluatedAt,
+    })
+    .from(eligibilityEvaluations)
+    .where(and(eq(eligibilityEvaluations.organizationId, organizationId), eq(eligibilityEvaluations.appointmentId, appointmentId)))
+    .orderBy(asc(eligibilityEvaluations.evaluatedAt));
+  const [latest] = latestId
+    ? await db
+        .select()
+        .from(eligibilityEvaluations)
+        .where(and(eq(eligibilityEvaluations.organizationId, organizationId), eq(eligibilityEvaluations.id, latestId)))
+    : [];
+  return {
+    eligibility: latest ? { ...latest, stale: latest.expiresAt <= now } : null,
+    eligibilityHistory: history,
+  };
+}
 
 /** Appointment detail + append-only history. Patient name only with patients.read. */
 export async function getAppointment(db: Db, ctx: AuthContext, id: string) {
@@ -69,6 +99,8 @@ export async function getAppointment(db: Db, ctx: AuthContext, id: string) {
     canManage: can(ctx, "scheduling.manage", { siteId: row.a.siteId }),
     bookingEnabled: bookingEnabled(),
     events: events.map(({ e, actorName }) => ({ ...e, actorName: actorName ?? (e.actorSystem ? `System (${e.actorSystem})` : "—") })),
+    payerPlanName: row.a.payerPlanId ? ((await db.select({ name: payerPlans.name }).from(payerPlans).where(eq(payerPlans.id, row.a.payerPlanId)))[0]?.name ?? null) : null,
+    ...(await eligibilityView(db, ctx.organizationId, id, row.a.eligibilityEvaluationId)),
   };
 }
 
@@ -123,6 +155,7 @@ export async function getCalendar(db: Db, ctx: AuthContext, input: unknown) {
           reservedEndAt: appointments.reservedEndAt,
           patientLocationState: appointments.patientLocationState,
           eligibilityStatus: appointments.eligibilityStatus,
+          eligibilityDecision: appointments.eligibilityDecision,
           version: appointments.version,
           patientName: patients.displayName,
           typeName: appointmentTypes.name,

@@ -3,7 +3,7 @@ import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, small
 import { createdAt, id, orgId, updatedAt, version } from "./_common";
 import { organizations, sites } from "./org";
 import { users } from "./auth";
-import { practitioners, services } from "./credentialing";
+import { payerPlans, practitioners, services } from "./credentialing";
 
 // Phase 4 scheduling. Patients here are SYNTHETIC ONLY until the PHI go-live gate is signed.
 // Instants are timestamptz (UTC); local wall times appear only in templates (with the site's IANA zone).
@@ -166,8 +166,11 @@ export const appointmentHolds = pgTable(
     createdAt: createdAt(),
     releasedAt: timestamp("released_at", { withTimezone: true }),
     releaseReason: text("release_reason"),
+    /** BOOKING (a scheduler's short hold) or WAITLIST_OFFER (held for an offered patient until the offer expires). */
+    purpose: text("purpose").notNull().default("BOOKING"),
   },
   (t) => [
+    check("appointment_holds_purpose_ck", sql`${t.purpose} in ('BOOKING','WAITLIST_OFFER')`),
     unique("appointment_holds_org_id_uq").on(t.organizationId, t.id),
     index("appointment_holds_status_exp_idx").on(t.status, t.expiresAt),
     foreignKey({ columns: [t.organizationId, t.practitionerId], foreignColumns: [practitioners.organizationId, practitioners.id] }),
@@ -205,6 +208,11 @@ export const appointments = pgTable(
     dataSource: text("data_source").notNull().default("PROJECTOS_DEMO"),
     /** Before Phase 5 this is always POLICY_PENDING; it is never "eligible". */
     eligibilityStatus: text("eligibility_status").notNull().default("POLICY_PENDING"),
+    /** Latest persisted evaluation (Phase 5). Null only for legacy Phase 4 demo rows. */
+    eligibilityDecision: text("eligibility_decision"),
+    eligibilityEvaluationId: uuid("eligibility_evaluation_id"),
+    /** Plan the visit is billed to; null = self-pay / not specified. */
+    payerPlanId: uuid("payer_plan_id"),
     cancelReason: text("cancel_reason"),
     holdId: uuid("hold_id"),
     createdBy: uuid("created_by").references(() => users.id),
@@ -222,6 +230,8 @@ export const appointments = pgTable(
     foreignKey({ columns: [t.organizationId, t.siteId], foreignColumns: [sites.organizationId, sites.id] }),
     foreignKey({ columns: [t.organizationId, t.roomId], foreignColumns: [rooms.organizationId, rooms.id] }),
     foreignKey({ columns: [t.organizationId, t.appointmentTypeId], foreignColumns: [appointmentTypes.organizationId, appointmentTypes.id] }),
+    foreignKey({ columns: [t.organizationId, t.payerPlanId], foreignColumns: [payerPlans.organizationId, payerPlans.id] }),
+    check("appointments_decision_ck", sql`${t.eligibilityDecision} is null or ${t.eligibilityDecision} in ('ALLOW','REVIEW','BLOCK')`),
     check("appointments_range_ck", sql`${t.endAt} > ${t.startAt} and ${t.reservedStartAt} <= ${t.startAt} and ${t.reservedEndAt} >= ${t.endAt}`),
     check("appointments_status_ck", sql`${t.status} in ('HOLD','PENDING','CONFIRMED','CHECKED_IN','COMPLETED','NO_SHOW','CANCELLED','NEEDS_RESCHEDULE')`),
     check("appointments_modality_ck", sql`${t.modality} in ('IN_PERSON','VIDEO','AUDIO_ONLY')`),
@@ -292,5 +302,121 @@ export const resourceReservations = pgTable(
       "resource_reservations_owner_ck",
       sql`(${t.reservationKind} = 'APPOINTMENT' and ${t.appointmentId} is not null) or (${t.reservationKind} = 'HOLD' and ${t.holdId} is not null) or ${t.reservationKind} = 'BLOCK'`,
     ),
+  ],
+);
+
+/**
+ * Immutable record of every eligibility decision taken at a commit point (book, reschedule, check-in,
+ * location change, re-check, waitlist offer/accept). Stores IDs and codes only — a minimal snapshot, no PHI.
+ */
+export const eligibilityEvaluations = pgTable(
+  "eligibility_evaluations",
+  {
+    id: id(),
+    organizationId: orgId().references(() => organizations.id),
+    trigger: text("trigger").notNull(),
+    appointmentId: uuid("appointment_id"),
+    waitlistOfferId: uuid("waitlist_offer_id"),
+    practitionerId: uuid("practitioner_id").notNull(),
+    siteId: uuid("site_id").notNull(),
+    appointmentTypeId: uuid("appointment_type_id").notNull(),
+    modality: text("modality").notNull(),
+    validForInstant: timestamp("valid_for_instant", { withTimezone: true }).notNull(),
+    jurisdiction: text("jurisdiction"),
+    patientLocationState: text("patient_location_state"),
+    patientLocationStatus: text("patient_location_status").notNull(),
+    providerLocationState: text("provider_location_state"),
+    payerPlanId: uuid("payer_plan_id"),
+    decision: text("decision").notNull(),
+    canConfirm: boolean("can_confirm").notNull(),
+    licenseStatus: text("license_status").notNull(),
+    payerStatus: text("payer_status").notNull(),
+    ehrMode: text("ehr_mode").notNull(),
+    flags: jsonb("flags").notNull(),
+    missingEvidenceCodes: text("missing_evidence_codes").array().notNull(),
+    evidenceIds: uuid("evidence_ids").array().notNull(),
+    policyRuleId: uuid("policy_rule_id"),
+    policyVersion: text("policy_version"),
+    isDemoPolicy: boolean("is_demo_policy").notNull().default(false),
+    ruleEffectiveDate: date("rule_effective_date"),
+    nextRequiredReviewAt: date("next_required_review_at"),
+    evaluatedAt: timestamp("evaluated_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id),
+    actorSystem: text("actor_system"),
+  },
+  (t) => [
+    unique("eligibility_evaluations_org_id_uq").on(t.organizationId, t.id),
+    index("eligibility_evaluations_appt_idx").on(t.organizationId, t.appointmentId, t.evaluatedAt),
+    check("eligibility_evaluations_decision_ck", sql`${t.decision} in ('ALLOW','REVIEW','BLOCK')`),
+    check("eligibility_evaluations_confirm_ck", sql`${t.canConfirm} = (${t.decision} = 'ALLOW')`),
+  ],
+);
+
+export const waitlistEntries = pgTable(
+  "waitlist_entries",
+  {
+    id: id(),
+    organizationId: orgId().references(() => organizations.id),
+    patientId: uuid("patient_id").notNull(),
+    appointmentTypeId: uuid("appointment_type_id").notNull(),
+    modality: text("modality").notNull(),
+    patientLocationState: text("patient_location_state").notNull(),
+    payerPlanId: uuid("payer_plan_id"),
+    siteId: uuid("site_id"),
+    practitionerId: uuid("practitioner_id"),
+    earliestDate: date("earliest_date").notNull(),
+    latestDate: date("latest_date").notNull(),
+    weekdays: smallint("weekdays").array().notNull(),
+    afterTime: time("after_time"),
+    beforeTime: time("before_time"),
+    priority: smallint("priority").notNull().default(2),
+    note: text("note"),
+    status: text("status").notNull().default("ACTIVE"),
+    appointmentId: uuid("appointment_id"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+  },
+  (t) => [
+    unique("waitlist_entries_org_id_uq").on(t.organizationId, t.id),
+    index("waitlist_entries_status_idx").on(t.organizationId, t.status, t.priority),
+    foreignKey({ columns: [t.organizationId, t.patientId], foreignColumns: [patients.organizationId, patients.id] }),
+    foreignKey({ columns: [t.organizationId, t.appointmentTypeId], foreignColumns: [appointmentTypes.organizationId, appointmentTypes.id] }),
+    foreignKey({ columns: [t.organizationId, t.siteId], foreignColumns: [sites.organizationId, sites.id] }),
+    foreignKey({ columns: [t.organizationId, t.practitionerId], foreignColumns: [practitioners.organizationId, practitioners.id] }),
+    foreignKey({ columns: [t.organizationId, t.payerPlanId], foreignColumns: [payerPlans.organizationId, payerPlans.id] }),
+    check("waitlist_entries_status_ck", sql`${t.status} in ('ACTIVE','OFFERED','BOOKED','CANCELLED')`),
+    check("waitlist_entries_dates_ck", sql`${t.latestDate} >= ${t.earliestDate}`),
+    check("waitlist_entries_priority_ck", sql`${t.priority} between 1 and 3`),
+  ],
+);
+
+export const waitlistOffers = pgTable(
+  "waitlist_offers",
+  {
+    id: id(),
+    organizationId: orgId().references(() => organizations.id),
+    entryId: uuid("entry_id").notNull(),
+    holdId: uuid("hold_id").notNull(),
+    practitionerId: uuid("practitioner_id").notNull(),
+    siteId: uuid("site_id").notNull(),
+    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("OFFERED"),
+    eligibilityEvaluationId: uuid("eligibility_evaluation_id"),
+    appointmentId: uuid("appointment_id"),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    statusReason: text("status_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("waitlist_offers_org_id_uq").on(t.organizationId, t.id),
+    index("waitlist_offers_entry_idx").on(t.organizationId, t.entryId),
+    foreignKey({ columns: [t.organizationId, t.entryId], foreignColumns: [waitlistEntries.organizationId, waitlistEntries.id] }),
+    foreignKey({ columns: [t.organizationId, t.holdId], foreignColumns: [appointmentHolds.organizationId, appointmentHolds.id] }),
+    check("waitlist_offers_status_ck", sql`${t.status} in ('OFFERED','ACCEPTED','DECLINED','EXPIRED','INVALIDATED')`),
   ],
 );

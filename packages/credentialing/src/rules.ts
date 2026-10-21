@@ -4,7 +4,7 @@ import { licensePolicyRules } from "@projectos/db/schema";
 import { hasAny, type AuthContext } from "@projectos/auth";
 import { audit, authorize, parse } from "@projectos/core";
 import { AppError, notFound, ruleApprove, ruleCreate, ruleRetire } from "@projectos/shared";
-import { dualControlEnabled } from "./access";
+import { dualControlEnabled, requestRescreen } from "./access";
 
 export async function listRules(db: Db, ctx: AuthContext) {
   if (!hasAny(ctx, "credentialing.read") && !hasAny(ctx, "policy.publish")) await authorize(db, ctx, "credentialing.read", "ANY");
@@ -69,7 +69,7 @@ export async function approveRule(db: Db, ctx: AuthContext, id: string, input: u
     await audit(db, ctx, { action: "rule.approve", resourceType: "license_policy_rule", resourceId: id, outcome: "DENY", metadata: { reason: "dual_control" } });
     throw new AppError("FORBIDDEN", "Dual control: a different person must approve this rule.");
   }
-  return db.transaction(async (tx) => {
+  const approved = await db.transaction(async (tx) => {
     const superseded = await tx
       .update(licensePolicyRules)
       .set({ status: "RETIRED", retiredBy: ctx.userId, retiredAt: new Date() })
@@ -89,12 +89,14 @@ export async function approveRule(db: Db, ctx: AuthContext, id: string, input: u
     });
     return row;
   });
+  await requestRescreen(db, ctx.organizationId, `rule:${id}:approved`);
+  return approved;
 }
 
 export async function retireRule(db: Db, ctx: AuthContext, id: string, input: unknown) {
   await authorize(db, ctx, "policy.publish", {}, { action: "rule.retire", resourceType: "license_policy_rule", resourceId: id });
   parse(ruleRetire, input);
-  return db.transaction(async (tx) => {
+  const retired = await db.transaction(async (tx) => {
     const [row] = await tx
       .update(licensePolicyRules)
       .set({ status: "RETIRED", retiredBy: ctx.userId, retiredAt: new Date() })
@@ -104,4 +106,6 @@ export async function retireRule(db: Db, ctx: AuthContext, id: string, input: un
     await audit(tx, ctx, { action: "rule.retire", resourceType: "license_policy_rule", resourceId: id });
     return row;
   });
+  await requestRescreen(db, ctx.organizationId, `rule:${id}:retired`);
+  return retired;
 }

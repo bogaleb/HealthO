@@ -8,7 +8,7 @@ import { ErrorState, PageHeader } from "@projectos/ui";
 import { requireContext, load } from "@/lib/session";
 import { Forbidden } from "@/components/Forbidden";
 import { NewAppointmentForm } from "@/components/scheduling/NewAppointmentForm";
-import { SchedulingDemoNote } from "@/components/scheduling/PolicyPending";
+import { SchedulingDemoNote } from "@/components/scheduling/DemoNote";
 
 export const metadata: Metadata = { title: "New appointment" };
 
@@ -68,7 +68,7 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
       {holdError ? (
         <ErrorState title="Hold not found" message={holdError} />
       ) : (
-        <NewAppointmentForm refData={refData} hold={hold} initialState={state} initialPatient={patient} today={todayIn("America/New_York")} />
+        <NewAppointmentForm refData={refData} hold={hold} initialState={state} initialPatient={patient} initialPlan={sp.plan} today={todayIn("America/New_York")} />
       )}
     </div>
   );

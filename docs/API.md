@@ -55,9 +55,10 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | GET | /api/v1/credentialing/readiness?modality&date&profession | read | full matrix (license + payer) with reasons and evidence IDs |
 | GET | /api/v1/credentialing/reference | read | sites, specialties, services |
 | POST | /api/v1/jobs/credentialing-deadlines | org-wide `org.manage` | expiry + 90/60/30-day renewal tasks (idempotent; worker runs daily) |
-| **Scheduling (Phase 4 — synthetic demo)** | | | |
+| **Scheduling (Phase 4–5 — synthetic demo)** | | | |
 | GET | /api/v1/scheduling/reference | scheduling.read | sites (scoped), appointment types, providers, rooms, services |
-| POST | /api/v1/scheduling/search | scheduling.read | `{appointmentTypeId, modality, siteId?, practitionerId?, fromDate, days≤14, patientState?}` → slots with reasons; eligibility `POLICY_PENDING` |
+| POST | /api/v1/scheduling/search | scheduling.read | `{appointmentTypeId, modality, siteId?, practitionerId?, fromDate, days≤14, patientState?, payerPlanId?, show=eligible\|all}` → slots with eligibility per slot + `notOffered` explanations |
+| POST | /api/v1/scheduling/evaluate | scheduling.read at site | explain one candidate (not persisted): decision, flags, rule version, evidence |
 | GET | /api/v1/scheduling/calendar?date&view=day\|week&siteId&practitionerId | scheduling.read | day boundaries in the site/org zone (23/25-h DST days) |
 | GET/POST | /api/v1/appointment-types, PATCH /:id | read / org-wide `scheduling.configure` | |
 | GET/POST | /api/v1/rooms | read / `scheduling.configure` at site | |
@@ -66,9 +67,17 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | GET/POST | /api/v1/patients?q, GET /:id | patients.read (+ scheduling.manage to create) | ≥2 chars, ≤20 rows; create = synthetic only |
 | POST | /api/v1/appointments/holds | scheduling.manage at site | expires after SCHEDULING_HOLD_MINUTES; 409 SLOT_CONFLICT |
 | GET/DELETE | /api/v1/appointments/holds/:id | owner or manage | release |
-| POST | /api/v1/appointments | scheduling.manage at site | `Idempotency-Key`; optional `holdId`; 403 BOOKING_DISABLED unless demo flag; 409 SLOT_CONFLICT / HOLD_EXPIRED; 422 SLOT_UNAVAILABLE |
+| POST | /api/v1/appointments | scheduling.manage at site | `Idempotency-Key`; optional `holdId`, `payerPlanId`, `acceptPendingReview`; 403 BOOKING_DISABLED; 409 SLOT_CONFLICT / HOLD_EXPIRED / ELIGIBILITY_REVIEW; 422 SLOT_UNAVAILABLE / ELIGIBILITY_BLOCKED (details carry flag codes + `ELIGIBLE_ALTERNATIVE`s) |
 | GET/PATCH | /api/v1/appointments/:id | read / manage | PATCH = atomic reschedule `{version, startAt, reason, practitionerId?, siteId?}` |
-| POST | /api/v1/appointments/:id/cancel | manage | `{version, reason}`; releases reservations; idempotent |
-| POST | /api/v1/appointments/:id/status | manage | CHECKED_IN (visit day only), COMPLETED, NO_SHOW (after start) |
+| POST | /api/v1/appointments/:id/cancel | manage | `{version, reason}`; releases reservations; idempotent; returns `waitlistCandidates` count |
+| POST | /api/v1/appointments/:id/status | manage | COMPLETED, NO_SHOW (after start) |
+| POST | /api/v1/appointments/:id/check-in | manage | `{version, patientLocationState?, locationConfirmed}` (required for video/audio); re-evaluates; non-ALLOW stops check-in (state committed) |
+| POST | /api/v1/appointments/:id/confirm-location | manage | record changed/confirmed patient location and re-check immediately |
+| POST | /api/v1/appointments/:id/recheck | manage | persist a fresh evaluation; REVIEW → PENDING, BLOCK → NEEDS_RESCHEDULE |
+| POST | /api/v1/appointments/:id/confirm | manage | PENDING → CONFIRMED only if a fresh evaluation is ALLOW |
+| GET/POST | /api/v1/waitlist, DELETE /:id | read / manage | staff-entered requests (date/weekday/time windows, location, payer) |
+| GET | /api/v1/waitlist/:id/matches | read | eligible matching slots |
+| POST | /api/v1/waitlist/:id/offer | manage | re-evaluates, holds the time until `expiresInMinutes` |
+| POST | /api/v1/waitlist/offers/:offerId/accept \| decline | manage | accept books from the hold after re-evaluation (INVALIDATED if no longer eligible) |
 
 An OpenAPI document is not generated yet (tracked in PROGRESS.md).

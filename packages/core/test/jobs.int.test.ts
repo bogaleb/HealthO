@@ -1,11 +1,15 @@
-import { afterAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { eq, sql } from "drizzle-orm";
 import { jobs } from "@projectos/db/schema";
 import { JOB_HANDLERS, enqueueJob, runDueJobs } from "../src/jobs";
 import { testDb } from "./helpers";
 
 const { db, end } = testDb();
 afterAll(async () => end());
+// Other suites legitimately enqueue jobs (e.g. scheduling.rescreen); park them so this suite only sees its own.
+beforeEach(async () => {
+  await db.execute(sql`update jobs set status = 'DONE' where type not like 'test.%' and status in ('PENDING','FAILED')`);
+});
 
 describe("postgres job queue", () => {
   it("dedupes enqueue by key and runs each job exactly once across concurrent workers", async () => {

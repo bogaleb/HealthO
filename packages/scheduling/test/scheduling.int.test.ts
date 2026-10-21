@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { appointmentEvents, appointments, auditEvents, resourceReservations, services } from "@projectos/db/schema";
 import { makeOrg, testDb, expectAppError, type Fixture } from "../../core/test/helpers";
+import { eligibilityFixture } from "./fixtures";
 import { createPractitioner } from "@projectos/credentialing";
 import {
   cancelAppointment,
   changeAppointmentStatus,
+  checkInAppointment,
   createAppointment,
   createAppointmentType,
   createException,
@@ -72,6 +74,12 @@ beforeAll(async () => {
   }))!.id;
   videoTypeId = (await createAppointmentType(db, ctxAdmin, { code: "TELE30", name: "Video 30", durationMinutes: 30, modalities: ["VIDEO"] }))!.id;
   roomId = (await createRoom(db, ctxAdmin, { siteId: A.sites.s1.id, code: "R1", name: "Room 1" }))!.id;
+  // Phase 5: bookings must be eligible — approved DEMO rules for VA and verified VA licenses for both providers.
+  const fx = await eligibilityFixture(db, A);
+  await fx.rule("VA", "IN_PERSON");
+  await fx.rule("VA", "VIDEO");
+  await fx.license(p1, "VA");
+  await fx.license(p2, "VA");
   for (const p of [p1, p2]) {
     for (const weekday of [0, 1, 2, 3, 4, 5, 6]) {
       await createTemplate(db, ctxAdmin, {
@@ -111,16 +119,15 @@ const book = async (startHHMM: string, o: Record<string, unknown> = {}, ctx = ct
   ).appointment;
 
 describe("search", () => {
-  it("returns slots with reasons and POLICY_PENDING eligibility, never 'eligible'", async () => {
+  it("returns slots with reasons and an ALLOW eligibility derived from verified evidence + approved rule", async () => {
     const r = await searchSlots(
       db,
       ctxAdmin,
       { appointmentTypeId: typeId, modality: "IN_PERSON", siteId: A.sites.s1.id, practitionerId: p1, fromDate: "2027-03-22", days: 1 },
       NOW,
     );
-    expect(r.eligibility.status).toBe("POLICY_PENDING");
     expect(r.slots.length).toBeGreaterThan(20);
-    expect(r.slots[0]).toMatchObject({ localStart: "09:00", zone: "EDT", roomCode: "R1", eligibility: "POLICY_PENDING" });
+    expect(r.slots[0]).toMatchObject({ localStart: "09:00", zone: "EDT", roomCode: "R1", eligibility: { decision: "ALLOW", isDemoPolicy: true } });
     expect(r.slots[0]!.reasons.join(" ")).toMatch(/Works .* 09:00–17:00/);
   });
 });
@@ -187,7 +194,7 @@ describe("SCH-06: cancellation releases the slot", () => {
     expect(rs.every((r) => r.state === "RELEASED")).toBe(true);
     const b = await book("x", { startAt: new Date(d).toISOString() });
     expect(b.status).toBe("CONFIRMED");
-    const ev = await db.select().from(appointmentEvents).where(eq(appointmentEvents.appointmentId, a.id));
+    const ev = await db.select().from(appointmentEvents).where(eq(appointmentEvents.appointmentId, a.id)).orderBy(asc(appointmentEvents.at));
     expect(ev.map((e) => e.event)).toEqual(["BOOKED", "CANCELLED"]);
   });
 });
@@ -342,20 +349,23 @@ describe("status, idempotency, append-only history", () => {
       modality: "VIDEO",
       startAt: new Date("2027-03-25T09:00:00-04:00").toISOString(),
       patientId: patients[0],
-      patientLocationState: "MD",
+      patientLocationState: "VA",
     };
     const r1 = await createAppointment(db, ctxAdmin, input, { idempotencyKey: "idem-test-key-0001", now: NOW });
     const r2 = await createAppointment(db, ctxAdmin, input, { idempotencyKey: "idem-test-key-0001", now: NOW });
     expect(r2.replayed).toBe(true);
     expect(r2.appointment.id).toBe(r1.appointment.id);
-    expect(r1.appointment.eligibilityStatus).toBe("POLICY_PENDING");
-    expect(r1.appointment.patientLocationState).toBe("MD");
+    expect(r1.appointment.eligibilityStatus).toBe("VERIFIED_ELIGIBLE");
+    expect(r1.appointment.eligibilityDecision).toBe("ALLOW");
+    expect(r1.appointment.patientLocationState).toBe("VA");
   });
   it("check-in only on the visit day; no-show only after start; history is append-only", async () => {
     const a = await book("x", { startAt: new Date("2027-03-26T09:00:00-04:00").toISOString() });
-    await expectAppError(changeAppointmentStatus(db, ctxAdmin, a.id, { version: a.version, status: "CHECKED_IN" }, NOW), "CONFLICT");
+    await expectAppError(checkInAppointment(db, ctxAdmin, a.id, { version: a.version }, NOW), "CONFLICT");
+    // The generic status endpoint cannot check in (check-in must re-evaluate eligibility).
+    await expectAppError(changeAppointmentStatus(db, ctxAdmin, a.id, { version: a.version, status: "CHECKED_IN" }, new Date("2027-03-26T12:50:00Z")), "CONFLICT");
     await expectAppError(changeAppointmentStatus(db, ctxAdmin, a.id, { version: a.version, status: "NO_SHOW" }, NOW), "CONFLICT");
-    const c = await changeAppointmentStatus(db, ctxAdmin, a.id, { version: a.version, status: "CHECKED_IN" }, new Date("2027-03-26T12:50:00Z"));
+    const c = await checkInAppointment(db, ctxAdmin, a.id, { version: a.version }, new Date("2027-03-26T12:50:00Z"));
     expect(c.status).toBe("CHECKED_IN");
     const done = await changeAppointmentStatus(db, ctxAdmin, a.id, { version: c.version, status: "COMPLETED" }, new Date("2027-03-26T13:40:00Z"));
     expect(done.status).toBe("COMPLETED");
@@ -363,7 +373,7 @@ describe("status, idempotency, append-only history", () => {
     await expect(db.execute(sql`update appointment_events set reason = 'tampered' where appointment_id = ${a.id}`)).rejects.toThrow();
     await expect(db.execute(sql`delete from resource_reservations where appointment_id = ${a.id}`)).rejects.toThrow();
     const detail = await getAppointment(db, ctxAdmin, a.id);
-    expect(detail.events.map((e) => e.event)).toEqual(["BOOKED", "CHECKED_IN", "COMPLETED"]);
+    expect(detail.events.map((e) => e.event)).toEqual(["BOOKED", "CHECK_IN_EVALUATED", "CHECKED_IN", "COMPLETED"]);
   });
 });
 

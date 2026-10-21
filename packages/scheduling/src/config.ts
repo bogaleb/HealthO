@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import type { Db } from "@projectos/db";
-import { appointmentTypes, practitionerSites, practitioners, rooms, scheduleExceptions, scheduleTemplates, services, sites } from "@projectos/db/schema";
+import { appointmentTypes, payerPlans, payers, practitionerSites, practitioners, rooms, scheduleExceptions, scheduleTemplates, services, sites } from "@projectos/db/schema";
 import { can, hasOrgWide, type AuthContext } from "@projectos/auth";
 import { audit, authorize, mapDbError, parse } from "@projectos/core";
 import { AppError, appointmentTypeCreate, appointmentTypeUpdate, notFound, roomCreate, scheduleExceptionCreate, scheduleTemplateCreate, versionConflict } from "@projectos/shared";
@@ -36,6 +36,12 @@ export async function getSchedulingReference(db: Db, ctx: AuthContext) {
       .orderBy(asc(rooms.code)),
     db.select({ id: services.id, code: services.code, name: services.name }).from(services).where(eq(services.organizationId, ctx.organizationId)),
   ]);
+  const plans = await db
+    .select({ id: payerPlans.id, name: payerPlans.name, payerName: payers.name, requiresEnrollment: payerPlans.requiresEnrollment })
+    .from(payerPlans)
+    .innerJoin(payers, eq(payers.id, payerPlans.payerId))
+    .where(eq(payerPlans.organizationId, ctx.organizationId))
+    .orderBy(asc(payers.name), asc(payerPlans.name));
   const visibleSites = new Set(siteRows.map((s) => s.id));
   return {
     sites: siteRows,
@@ -43,6 +49,7 @@ export async function getSchedulingReference(db: Db, ctx: AuthContext) {
     practitioners: provRows.filter((p) => p.siteIds.some((s) => visibleSites.has(s))),
     rooms: roomRows,
     services: serviceRows,
+    payerPlans: plans,
   };
 }
 

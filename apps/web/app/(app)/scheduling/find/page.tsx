@@ -7,7 +7,7 @@ import { PageHeader } from "@projectos/ui";
 import { requireContext, load } from "@/lib/session";
 import { Forbidden } from "@/components/Forbidden";
 import { FindAppointment } from "@/components/scheduling/FindAppointment";
-import { SchedulingDemoNote } from "@/components/scheduling/PolicyPending";
+import { SchedulingDemoNote } from "@/components/scheduling/DemoNote";
 
 export const metadata: Metadata = { title: "Find appointment" };
 

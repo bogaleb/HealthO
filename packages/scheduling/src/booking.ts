@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, inArray, lt } from "drizzle-orm";
 import { pgErrorCode, type Db, type Tx } from "@projectos/db";
 import { appointmentEvents, appointmentHolds, appointments, idempotencyKeys, patients, practitioners, resourceReservations, sites } from "@projectos/db/schema";
 import { can, type AuthContext } from "@projectos/auth";
@@ -10,6 +10,9 @@ import {
   appointmentCreate,
   appointmentReschedule,
   appointmentStatusChange,
+  appointmentCheckIn,
+  appointmentLocationChange,
+  eligibilityEvaluate,
   holdCreate,
   localDate,
   notFound,
@@ -17,14 +20,15 @@ import {
   versionConflict,
   type AppointmentStatus,
   type Modality,
-  ELIGIBILITY_POLICY_PENDING,
   SLOT_STEP_MINUTES,
   localTime,
   zoneAbbreviation,
   addDays,
 } from "@projectos/shared";
 import { assertBookingEnabled, requireAtSite } from "./access";
-import { candidatePractitioners, loadAvailability, loadType } from "./availability";
+import { candidatePractitioners, findSlots, loadAvailability, loadType } from "./availability";
+import { eligibilityError, evaluateEligibility, persistEvaluation, statusForDecision, type EligibilityResult, type EvaluateInput, type LocationStatus } from "./eligibility";
+import { ensureEligibilityTasks } from "./followups";
 import { releaseExpiredHolds } from "./holds-job";
 import { checkCandidate, generateSlots, rangesFor, UNAVAILABLE_MESSAGE } from "./slots";
 
@@ -188,57 +192,180 @@ async function attachAlternatives<T>(db: Db, ctx: AuthContext, t: Target, now: D
   }
 }
 
+type Actor = AuthContext | { system: string; organizationId: string };
+const isSystem = (a: Actor): a is { system: string; organizationId: string } => "system" in a;
+
 async function event(
   tx: Tx,
-  ctx: AuthContext,
+  actor: Actor,
   appointmentId: string,
   e: { event: string; from?: string | null; to?: string | null; reason?: string | null; before?: unknown; after?: unknown },
 ) {
   await tx.insert(appointmentEvents).values({
-    organizationId: ctx.organizationId,
+    organizationId: actor.organizationId,
     appointmentId,
     event: e.event,
     fromStatus: e.from ?? null,
     toStatus: e.to ?? null,
-    actorUserId: ctx.userId,
+    actorUserId: isSystem(actor) ? null : actor.userId,
+    actorSystem: isSystem(actor) ? actor.system : null,
     reason: e.reason ?? null,
     before: (e.before ?? null) as never,
     after: (e.after ?? null) as never,
   });
 }
 
+/* ---------------------------------- eligibility glue ---------------------------------- */
+
+/** Thrown inside a booking transaction when eligibility stops it; handled after the rollback. */
+class EligibilityStop extends Error {
+  constructor(
+    readonly result: EligibilityResult,
+    readonly input: EvaluateInput,
+  ) {
+    super("eligibility stop");
+  }
+}
+
+const codesOf = (r: EligibilityResult) => r.flags.filter((f) => f.severity !== "INFO").map((f) => f.code);
+
+/**
+ * After a refused commit: persist the (immutable) evaluation, audit the denial with reason codes, create
+ * policy/evidence follow-up tasks, and attach up to five ELIGIBLE alternatives (any provider at the site).
+ */
+async function onEligibilityStop(db: Db, ctx: AuthContext, stop: EligibilityStop, link: { trigger: string; appointmentId?: string; action: string }, now: Date): Promise<never> {
+  const { result: r, input } = stop;
+  await db.transaction(async (tx) => {
+    await persistEvaluation(tx, ctx, input, r, { trigger: link.trigger, appointmentId: link.appointmentId ?? null });
+    await audit(tx, ctx, {
+      action: link.action,
+      resourceType: "appointment",
+      resourceId: link.appointmentId ?? null,
+      outcome: "DENY",
+      metadata: { reason: "eligibility", decision: r.decision, codes: codesOf(r), practitionerId: input.practitionerId, siteId: input.siteId },
+    });
+  });
+  await ensureEligibilityTasks(db, ctx.organizationId, input, r);
+  const alts = await eligibleAlternatives(db, ctx.organizationId, input, now);
+  const err = eligibilityError(r);
+  throw new AppError(err.code, err.message, [...err.details, ...alts]);
+}
+
+/** Up to 5 ALLOW slots at the same site (any eligible provider) from the requested day on. */
+export async function eligibleAlternatives(db: Db, organizationId: string, input: EvaluateInput, now: Date) {
+  try {
+    const type = await loadType(db, organizationId, input.appointmentTypeId);
+    const [site] = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.organizationId, organizationId), eq(sites.id, input.siteId)));
+    if (!site) return [];
+    const r = await findSlots(db, organizationId, {
+      type,
+      modality: input.modality,
+      siteIds: [input.siteId],
+      fromDate: localDate(input.startAt, site.timezone),
+      days: 3,
+      patientState: input.patientLocationState,
+      patientLocationStatus: input.patientLocationStatus === "VERIFIED" ? "VERIFIED" : "PROPOSED",
+      payerPlanId: input.payerPlanId,
+      show: "eligible",
+      limitPerDay: 4,
+      now,
+    });
+    return r.slots.slice(0, 5).map((s) => ({
+      code: "ELIGIBLE_ALTERNATIVE",
+      field: `${s.practitionerId}@${s.startAt}`,
+      message: `${s.date} ${s.localStart} ${s.zone} — ${s.practitionerName.replace(/ \(SYNTHETIC\)$/, "")}`,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function evalInputOf(t: Target, start: Date, loc: { state: string | null; status: string }, payerPlanId: string | null): EvaluateInput {
+  return {
+    practitionerId: t.practitionerId,
+    siteId: t.siteId,
+    appointmentTypeId: t.appointmentTypeId,
+    modality: t.modality,
+    startAt: start,
+    patientLocationState: loc.state,
+    patientLocationStatus: loc.state ? (loc.status as LocationStatus) : "UNKNOWN",
+    payerPlanId,
+  };
+}
+
 /* ------------------------------------- holds ------------------------------------ */
 
+async function insertHold(tx: Tx, ctx: AuthContext, d: Target, v: Awaited<ReturnType<typeof validateTarget>>, opts: { expiresAt: Date; purpose: "BOOKING" | "WAITLIST_OFFER" }) {
+  const id = randomUUID();
+  const [h] = await tx
+    .insert(appointmentHolds)
+    .values({
+      id,
+      organizationId: ctx.organizationId,
+      practitionerId: d.practitionerId,
+      siteId: d.siteId,
+      roomId: v.roomId,
+      appointmentTypeId: d.appointmentTypeId,
+      modality: d.modality,
+      startAt: v.visit.start,
+      endAt: v.visit.end,
+      expiresAt: opts.expiresAt,
+      purpose: opts.purpose,
+      createdBy: ctx.userId,
+    })
+    .returning();
+  await reserve(tx, ctx.organizationId, { practitionerId: d.practitionerId, roomId: v.roomId }, v.reserved, { kind: "HOLD", holdId: id });
+  await audit(tx, ctx, {
+    action: "hold.create",
+    resourceType: "appointment_hold",
+    resourceId: id,
+    metadata: { practitionerId: d.practitionerId, siteId: d.siteId, purpose: opts.purpose },
+  });
+  return h!;
+}
+
+/**
+ * Hold a time. Eligibility is evaluated first: a BLOCK result cannot be held (REVIEW can, so staff may save
+ * it as pending review). The booking re-evaluates anyway.
+ */
 export async function createHold(db: Db, ctx: AuthContext, input: unknown, now = new Date()) {
   assertBookingEnabled();
   const d = parse(holdCreate, input);
   await requireAtSite(db, ctx, "scheduling.manage", d.siteId, "appointment.hold");
-  return attachAlternatives(db, ctx, d, now, () =>
-    withConflictHandling(db, ctx, now, () =>
-      db.transaction(async (tx) => {
-        const v = await validateTarget(tx, ctx, d, { now });
-        const id = randomUUID();
-        const [h] = await tx
-          .insert(appointmentHolds)
-          .values({
-            id,
-            organizationId: ctx.organizationId,
-            practitionerId: d.practitionerId,
-            siteId: d.siteId,
-            roomId: v.roomId,
-            appointmentTypeId: d.appointmentTypeId,
-            modality: d.modality,
-            startAt: v.visit.start,
-            endAt: v.visit.end,
-            expiresAt: new Date(now.getTime() + holdMinutes() * 60_000),
-            createdBy: ctx.userId,
-          })
-          .returning();
-        await reserve(tx, ctx.organizationId, { practitionerId: d.practitionerId, roomId: v.roomId }, v.reserved, { kind: "HOLD", holdId: id });
-        await audit(tx, ctx, { action: "hold.create", resourceType: "appointment_hold", resourceId: id, metadata: { practitionerId: d.practitionerId, siteId: d.siteId } });
-        return { ...h!, timezone: v.timezone };
-      }),
-    ),
+  try {
+    return await attachAlternatives(db, ctx, d, now, () =>
+      withConflictHandling(db, ctx, now, () =>
+        db.transaction(async (tx) => {
+          const v = await validateTarget(tx, ctx, d, { now });
+          const ei = evalInputOf(d, v.visit.start, { state: d.patientLocationState ?? null, status: "PROPOSED" }, d.payerPlanId ?? null);
+          const r = await evaluateEligibility(tx, ctx.organizationId, ei, { capacity: { ok: true }, now });
+          if (r.decision === "BLOCK") throw new EligibilityStop(r, ei);
+          const h = await insertHold(tx, ctx, d, v, { expiresAt: new Date(now.getTime() + holdMinutes() * 60_000), purpose: "BOOKING" });
+          return { ...h, timezone: v.timezone, eligibility: r };
+        }),
+      ),
+    );
+  } catch (e) {
+    if (e instanceof EligibilityStop) {
+      const alts = await eligibleAlternatives(db, ctx.organizationId, e.input, now);
+      const err = eligibilityError(e.result);
+      throw new AppError(err.code, err.message, [...err.details, ...alts]);
+    }
+    throw e;
+  }
+}
+
+/** Internal: a long hold for a waitlist offer (re-evaluated by the caller; expires with the offer). */
+export async function createOfferHold(db: Db, ctx: AuthContext, d: Target, expiresAt: Date, now: Date) {
+  return withConflictHandling(db, ctx, now, () =>
+    db.transaction(async (tx) => {
+      const v = await validateTarget(tx, ctx, d, { now });
+      const h = await insertHold(tx, ctx, d, v, { expiresAt, purpose: "WAITLIST_OFFER" });
+      return { ...h, timezone: v.timezone };
+    }),
   );
 }
 
@@ -260,7 +387,7 @@ export async function getHold(db: Db, ctx: AuthContext, id: string) {
   return { ...h.h, practitionerName: h.practitionerName, siteCode: h.siteCode, siteName: h.siteName, siteState: h.siteState, timezone: h.timezone };
 }
 
-export async function releaseHold(db: Db, ctx: AuthContext, id: string, now = new Date()) {
+export async function releaseHold(db: Db, ctx: AuthContext, id: string, now = new Date(), reason = "released by staff") {
   const h = await getHold(db, ctx, id);
   if (h.status !== "ACTIVE") return { released: false };
   await db.transaction(async (tx) => {
@@ -270,7 +397,7 @@ export async function releaseHold(db: Db, ctx: AuthContext, id: string, now = ne
       .where(and(eq(appointmentHolds.id, id), eq(appointmentHolds.status, "ACTIVE")))
       .for("update");
     if (!locked) return;
-    await tx.update(appointmentHolds).set({ status: "RELEASED", releasedAt: now, releaseReason: "released by staff" }).where(eq(appointmentHolds.id, id));
+    await tx.update(appointmentHolds).set({ status: "RELEASED", releasedAt: now, releaseReason: reason }).where(eq(appointmentHolds.id, id));
     await releaseFor(tx, ctx.organizationId, { holdId: id }, now);
     await audit(tx, ctx, { action: "hold.release", resourceType: "appointment_hold", resourceId: id });
   });
@@ -280,10 +407,15 @@ export async function releaseHold(db: Db, ctx: AuthContext, id: string, now = ne
 /* ------------------------------------ booking ----------------------------------- */
 
 /**
- * Book (synthetic demo only). Idempotent with an Idempotency-Key. With `holdId` the caller's own unexpired
- * hold is converted in the same transaction. Eligibility is recorded as POLICY_PENDING — never "eligible".
+ * Book (synthetic demo only). Idempotent with an Idempotency-Key; with `holdId` the caller's own unexpired
+ * hold (or a waitlist-offer hold the caller may manage) is converted in the same transaction.
+ * Eligibility is re-derived INSIDE the transaction:
+ *  - ALLOW → CONFIRMED;
+ *  - REVIEW → refused (409 ELIGIBILITY_REVIEW) unless `acceptPendingReview`, then PENDING (holds the time, not confirmed);
+ *  - BLOCK → refused (422 ELIGIBILITY_BLOCKED).
+ * Every outcome persists an immutable evaluation; refusals are audited as DENY and create follow-up tasks.
  */
-export async function createAppointment(db: Db, ctx: AuthContext, input: unknown, opts: { idempotencyKey?: string; now?: Date } = {}) {
+export async function createAppointment(db: Db, ctx: AuthContext, input: unknown, opts: { idempotencyKey?: string; now?: Date; allowOfferHold?: boolean; trigger?: string } = {}) {
   assertBookingEnabled();
   const now = opts.now ?? new Date();
   const d = parse(appointmentCreate, input);
@@ -294,97 +426,118 @@ export async function createAppointment(db: Db, ctx: AuthContext, input: unknown
     .where(and(eq(patients.organizationId, ctx.organizationId), eq(patients.id, d.patientId)));
   if (!patient) throw new AppError("VALIDATION_FAILED", "Unknown patient.", [{ code: "UNKNOWN_PATIENT", field: "patientId" }]);
 
-  return attachAlternatives(db, ctx, d, now, () =>
-    withConflictHandling(db, ctx, now, () =>
-      db.transaction(async (tx) => {
-        const newId = randomUUID();
-        if (opts.idempotencyKey) {
-          const inserted = await tx
-            .insert(idempotencyKeys)
-            .values({ organizationId: ctx.organizationId, scope: "appointment.create", key: opts.idempotencyKey, resourceId: newId })
-            .onConflictDoNothing()
-            .returning({ id: idempotencyKeys.id });
-          if (!inserted.length) {
-            const [prior] = await tx
-              .select({ resourceId: idempotencyKeys.resourceId })
-              .from(idempotencyKeys)
-              .where(and(eq(idempotencyKeys.organizationId, ctx.organizationId), eq(idempotencyKeys.scope, "appointment.create"), eq(idempotencyKeys.key, opts.idempotencyKey)));
-            const [existing] = await tx
-              .select()
-              .from(appointments)
-              .where(and(eq(appointments.organizationId, ctx.organizationId), eq(appointments.id, prior!.resourceId)));
-            if (!existing) throw new AppError("CONFLICT", "Idempotency key was already used.");
-            return { appointment: existing, replayed: true };
+  let result;
+  try {
+    result = await attachAlternatives(db, ctx, d, now, () =>
+      withConflictHandling(db, ctx, now, () =>
+        db.transaction(async (tx) => {
+          const newId = randomUUID();
+          if (opts.idempotencyKey) {
+            const inserted = await tx
+              .insert(idempotencyKeys)
+              .values({ organizationId: ctx.organizationId, scope: "appointment.create", key: opts.idempotencyKey, resourceId: newId })
+              .onConflictDoNothing()
+              .returning({ id: idempotencyKeys.id });
+            if (!inserted.length) {
+              const [prior] = await tx
+                .select({ resourceId: idempotencyKeys.resourceId })
+                .from(idempotencyKeys)
+                .where(and(eq(idempotencyKeys.organizationId, ctx.organizationId), eq(idempotencyKeys.scope, "appointment.create"), eq(idempotencyKeys.key, opts.idempotencyKey)));
+              const [existing] = await tx
+                .select()
+                .from(appointments)
+                .where(and(eq(appointments.organizationId, ctx.organizationId), eq(appointments.id, prior!.resourceId)));
+              if (!existing) throw new AppError("CONFLICT", "Idempotency key was already used.");
+              return { appointment: existing, replayed: true, eligibility: null as EligibilityResult | null, input: null as EvaluateInput | null };
+            }
           }
-        }
-        let holdId: string | undefined;
-        if (d.holdId) {
-          const [h] = await tx
-            .select()
-            .from(appointmentHolds)
-            .where(and(eq(appointmentHolds.organizationId, ctx.organizationId), eq(appointmentHolds.id, d.holdId)))
-            .for("update");
-          if (!h || h.createdBy !== ctx.userId) throw notFound("Hold");
-          if (h.status !== "ACTIVE" || h.expiresAt <= now)
-            throw new AppError("HOLD_EXPIRED", "This hold has expired or was released. Search again.", [{ code: "HOLD_EXPIRED", field: "holdId" }]);
-          const same =
-            h.practitionerId === d.practitionerId &&
-            h.siteId === d.siteId &&
-            h.appointmentTypeId === d.appointmentTypeId &&
-            h.modality === d.modality &&
-            h.startAt.getTime() === new Date(d.startAt).getTime();
-          if (!same) throw new AppError("VALIDATION_FAILED", "The booking does not match the held slot.", [{ code: "HOLD_MISMATCH", field: "holdId" }]);
-          await tx.update(appointmentHolds).set({ status: "CONVERTED", releasedAt: now, releaseReason: "converted to appointment" }).where(eq(appointmentHolds.id, h.id));
-          await releaseFor(tx, ctx.organizationId, { holdId: h.id }, now);
-          holdId = h.id;
-          if (!d.roomId && h.roomId) d.roomId = h.roomId;
-        }
-        const v = await validateTarget(tx, ctx, d, { now, excludeHoldId: holdId });
-        const [p] = await tx.select({ physicalState: practitioners.physicalState }).from(practitioners).where(eq(practitioners.id, d.practitionerId));
-        const [a] = await tx
-          .insert(appointments)
-          .values({
-            id: newId,
-            organizationId: ctx.organizationId,
-            patientId: d.patientId,
-            practitionerId: d.practitionerId,
-            siteId: d.siteId,
-            roomId: v.roomId,
-            appointmentTypeId: d.appointmentTypeId,
-            modality: d.modality,
-            startAt: v.visit.start,
-            endAt: v.visit.end,
-            reservedStartAt: v.reserved.start,
-            reservedEndAt: v.reserved.end,
-            timezone: v.timezone,
-            status: "CONFIRMED",
-            patientLocationState: d.patientLocationState,
-            patientLocationStatus: d.patientLocationStatus,
-            providerLocationState: d.modality === "IN_PERSON" ? v.site.state : (p?.physicalState ?? null),
-            eligibilityStatus: ELIGIBILITY_POLICY_PENDING,
-            holdId: holdId ?? null,
-            createdBy: ctx.userId,
-          })
-          .returning();
-        await reserve(tx, ctx.organizationId, { practitionerId: d.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: newId });
-        await event(tx, ctx, newId, { event: "BOOKED", to: "CONFIRMED", after: { startAt: a!.startAt, practitionerId: d.practitionerId, siteId: d.siteId, roomId: v.roomId } });
-        await audit(tx, ctx, {
-          action: "appointment.create",
-          resourceType: "appointment",
-          resourceId: newId,
-          metadata: { practitionerId: d.practitionerId, siteId: d.siteId, fromHold: !!holdId, eligibility: ELIGIBILITY_POLICY_PENDING },
-        });
-        return { appointment: a!, replayed: false };
-      }),
-    ),
-  );
+          let holdId: string | undefined;
+          if (d.holdId) {
+            const [h] = await tx
+              .select()
+              .from(appointmentHolds)
+              .where(and(eq(appointmentHolds.organizationId, ctx.organizationId), eq(appointmentHolds.id, d.holdId)))
+              .for("update");
+            const mayUse = h && (h.createdBy === ctx.userId || (opts.allowOfferHold && h.purpose === "WAITLIST_OFFER" && can(ctx, "scheduling.manage", { siteId: h.siteId })));
+            if (!h || !mayUse) throw notFound("Hold");
+            if (h.status !== "ACTIVE" || h.expiresAt <= now)
+              throw new AppError("HOLD_EXPIRED", "This hold has expired or was released. Search again.", [{ code: "HOLD_EXPIRED", field: "holdId" }]);
+            const same =
+              h.practitionerId === d.practitionerId &&
+              h.siteId === d.siteId &&
+              h.appointmentTypeId === d.appointmentTypeId &&
+              h.modality === d.modality &&
+              h.startAt.getTime() === new Date(d.startAt).getTime();
+            if (!same) throw new AppError("VALIDATION_FAILED", "The booking does not match the held slot.", [{ code: "HOLD_MISMATCH", field: "holdId" }]);
+            await tx.update(appointmentHolds).set({ status: "CONVERTED", releasedAt: now, releaseReason: "converted to appointment" }).where(eq(appointmentHolds.id, h.id));
+            await releaseFor(tx, ctx.organizationId, { holdId: h.id }, now);
+            holdId = h.id;
+            if (!d.roomId && h.roomId) d.roomId = h.roomId;
+          }
+          const v = await validateTarget(tx, ctx, d, { now, excludeHoldId: holdId });
+          const ei = evalInputOf(d, v.visit.start, { state: d.patientLocationState ?? null, status: d.patientLocationStatus }, d.payerPlanId ?? null);
+          const r = await evaluateEligibility(tx, ctx.organizationId, ei, { capacity: { ok: true }, now });
+          if (r.decision === "BLOCK" || (r.decision === "REVIEW" && !d.acceptPendingReview)) throw new EligibilityStop(r, ei);
+          const status = r.decision === "ALLOW" ? "CONFIRMED" : "PENDING";
+          const [a] = await tx
+            .insert(appointments)
+            .values({
+              id: newId,
+              organizationId: ctx.organizationId,
+              patientId: d.patientId,
+              practitionerId: d.practitionerId,
+              siteId: d.siteId,
+              roomId: v.roomId,
+              appointmentTypeId: d.appointmentTypeId,
+              modality: d.modality,
+              startAt: v.visit.start,
+              endAt: v.visit.end,
+              reservedStartAt: v.reserved.start,
+              reservedEndAt: v.reserved.end,
+              timezone: v.timezone,
+              status,
+              patientLocationState: d.patientLocationState ?? null,
+              patientLocationStatus: r.patientLocationStatus,
+              providerLocationState: r.providerLocationState,
+              eligibilityStatus: statusForDecision(r.decision),
+              eligibilityDecision: r.decision,
+              payerPlanId: d.payerPlanId ?? null,
+              holdId: holdId ?? null,
+              createdBy: ctx.userId,
+            })
+            .returning();
+          const evalId = await persistEvaluation(tx, ctx, ei, r, { trigger: opts.trigger ?? "BOOK", appointmentId: newId });
+          const [withEval] = await tx.update(appointments).set({ eligibilityEvaluationId: evalId }).where(eq(appointments.id, newId)).returning();
+          await reserve(tx, ctx.organizationId, { practitionerId: d.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: newId });
+          await event(tx, ctx, newId, {
+            event: "BOOKED",
+            to: status,
+            reason: status === "PENDING" ? "Saved pending eligibility review (not confirmed)" : null,
+            after: { startAt: a!.startAt, practitionerId: d.practitionerId, siteId: d.siteId, roomId: v.roomId, decision: r.decision },
+          });
+          await audit(tx, ctx, {
+            action: "appointment.create",
+            resourceType: "appointment",
+            resourceId: newId,
+            metadata: { practitionerId: d.practitionerId, siteId: d.siteId, fromHold: !!holdId, decision: r.decision, codes: codesOf(r), evaluationId: evalId },
+          });
+          return { appointment: withEval!, replayed: false, eligibility: r, input: ei };
+        }),
+      ),
+    );
+  } catch (e) {
+    if (e instanceof EligibilityStop) return onEligibilityStop(db, ctx, e, { trigger: "BOOK_ATTEMPT", action: "appointment.create" }, now);
+    throw e;
+  }
+  if (result.eligibility && result.input && result.eligibility.decision !== "ALLOW") await ensureEligibilityTasks(db, ctx.organizationId, result.input, result.eligibility);
+  return { appointment: result.appointment, replayed: result.replayed, eligibility: result.eligibility };
 }
 
-async function lockAppointment(tx: Tx, ctx: AuthContext, id: string) {
+async function lockAppointment(tx: Tx, organizationId: string, id: string) {
   const [a] = await tx
     .select()
     .from(appointments)
-    .where(and(eq(appointments.organizationId, ctx.organizationId), eq(appointments.id, id)))
+    .where(and(eq(appointments.organizationId, organizationId), eq(appointments.id, id)))
     .for("update");
   if (!a) throw notFound("Appointment");
   return a;
@@ -407,11 +560,25 @@ const snapshot = (a: typeof appointments.$inferSelect) => ({
   siteId: a.siteId,
   roomId: a.roomId,
   status: a.status,
+  patientLocationState: a.patientLocationState,
+  patientLocationStatus: a.patientLocationStatus,
+});
+
+const inputFromAppointment = (a: typeof appointments.$inferSelect, o: Partial<EvaluateInput> = {}): EvaluateInput => ({
+  practitionerId: a.practitionerId,
+  siteId: a.siteId,
+  appointmentTypeId: a.appointmentTypeId,
+  modality: a.modality as Modality,
+  startAt: a.startAt,
+  patientLocationState: a.patientLocationState,
+  patientLocationStatus: a.patientLocationState ? (a.patientLocationStatus as LocationStatus) : "UNKNOWN",
+  payerPlanId: a.payerPlanId,
+  ...o,
 });
 
 /**
- * Atomic reschedule: release the old reservations and create the new ones in ONE transaction. If anything
- * fails (conflict, closed, outside hours, version) the transaction rolls back and the original is unchanged.
+ * Atomic reschedule: release the old reservations, re-validate capacity AND re-evaluate eligibility for the new
+ * time/provider, create the new reservations — one transaction. Any failure leaves the original unchanged.
  */
 export async function rescheduleAppointment(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
   assertBookingEnabled();
@@ -426,45 +593,64 @@ export async function rescheduleAppointment(db: Db, ctx: AuthContext, id: string
     roomId: d.roomId === undefined ? (d.siteId && d.siteId !== cur.siteId ? null : cur.roomId) : d.roomId,
   };
   if (target.siteId !== cur.siteId) await requireAtSite(db, ctx, "scheduling.manage", target.siteId, "appointment.reschedule", "appointment", id);
-  return attachAlternatives(db, ctx, target, now, () =>
-    withConflictHandling(db, ctx, now, () =>
-      db.transaction(async (tx) => {
-        const a = await lockAppointment(tx, ctx, id);
-        if (a.version !== d.version) throw versionConflict();
-        if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(a.status))
-          throw new AppError("CONFLICT", `A ${a.status.toLowerCase().replace("_", " ")} appointment cannot be rescheduled.`, [{ code: "BAD_STATUS", field: "status" }]);
-        await releaseFor(tx, ctx.organizationId, { appointmentId: id }, now);
-        const v = await validateTarget(tx, ctx, target, { now, excludeAppointmentId: id });
-        const [u] = await tx
-          .update(appointments)
-          .set({
-            practitionerId: target.practitionerId,
-            siteId: target.siteId,
-            roomId: v.roomId,
-            startAt: v.visit.start,
-            endAt: v.visit.end,
-            reservedStartAt: v.reserved.start,
-            reservedEndAt: v.reserved.end,
-            timezone: v.timezone,
-            status: "CONFIRMED",
-            version: a.version + 1,
-          })
-          .where(eq(appointments.id, id))
-          .returning();
-        await reserve(tx, ctx.organizationId, { practitionerId: target.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: id });
-        await event(tx, ctx, id, { event: "RESCHEDULED", from: a.status, to: "CONFIRMED", reason: d.reason, before: snapshot(a), after: snapshot(u!) });
-        await audit(tx, ctx, { action: "appointment.reschedule", resourceType: "appointment", resourceId: id, metadata: { movedSite: target.siteId !== a.siteId } });
-        return u!;
-      }),
-    ),
-  );
+  try {
+    return await attachAlternatives(db, ctx, target, now, () =>
+      withConflictHandling(db, ctx, now, () =>
+        db.transaction(async (tx) => {
+          const a = await lockAppointment(tx, ctx.organizationId, id);
+          if (a.version !== d.version) throw versionConflict();
+          if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(a.status))
+            throw new AppError("CONFLICT", `A ${a.status.toLowerCase().replace("_", " ")} appointment cannot be rescheduled.`, [{ code: "BAD_STATUS", field: "status" }]);
+          await releaseFor(tx, ctx.organizationId, { appointmentId: id }, now);
+          const v = await validateTarget(tx, ctx, target, { now, excludeAppointmentId: id });
+          const ei = inputFromAppointment(a, { practitionerId: target.practitionerId, siteId: target.siteId, startAt: v.visit.start });
+          const r = await evaluateEligibility(tx, ctx.organizationId, ei, { capacity: { ok: true }, now });
+          if (r.decision === "BLOCK" || (r.decision === "REVIEW" && !d.acceptPendingReview)) throw new EligibilityStop(r, ei);
+          const status = r.decision === "ALLOW" ? "CONFIRMED" : "PENDING";
+          const evalId = await persistEvaluation(tx, ctx, ei, r, { trigger: "RESCHEDULE", appointmentId: id });
+          const [u] = await tx
+            .update(appointments)
+            .set({
+              practitionerId: target.practitionerId,
+              siteId: target.siteId,
+              roomId: v.roomId,
+              startAt: v.visit.start,
+              endAt: v.visit.end,
+              reservedStartAt: v.reserved.start,
+              reservedEndAt: v.reserved.end,
+              timezone: v.timezone,
+              status,
+              providerLocationState: r.providerLocationState,
+              eligibilityDecision: r.decision,
+              eligibilityStatus: statusForDecision(r.decision),
+              eligibilityEvaluationId: evalId,
+              version: a.version + 1,
+            })
+            .where(eq(appointments.id, id))
+            .returning();
+          await reserve(tx, ctx.organizationId, { practitionerId: target.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: id });
+          await event(tx, ctx, id, { event: "RESCHEDULED", from: a.status, to: status, reason: d.reason, before: snapshot(a), after: snapshot(u!) });
+          await audit(tx, ctx, {
+            action: "appointment.reschedule",
+            resourceType: "appointment",
+            resourceId: id,
+            metadata: { movedSite: target.siteId !== a.siteId, decision: r.decision, evaluationId: evalId },
+          });
+          return u!;
+        }),
+      ),
+    );
+  } catch (e) {
+    if (e instanceof EligibilityStop) return onEligibilityStop(db, ctx, e, { trigger: "RESCHEDULE_ATTEMPT", appointmentId: id, action: "appointment.reschedule" }, now);
+    throw e;
+  }
 }
 
 export async function cancelAppointment(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
   const d = parse(appointmentCancel, input);
   await loadForAuth(db, ctx, id, "appointment.cancel");
   return db.transaction(async (tx) => {
-    const a = await lockAppointment(tx, ctx, id);
+    const a = await lockAppointment(tx, ctx.organizationId, id);
     if (a.status === "CANCELLED") return a; // idempotent retry
     if (a.version !== d.version) throw versionConflict();
     if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(a.status))
@@ -481,18 +667,23 @@ export async function cancelAppointment(db: Db, ctx: AuthContext, id: string, in
   });
 }
 
-/** Check-in / complete / no-show. Check-in only on the visit's local date; no-show only after the start. */
+/** Complete / no-show. (Check-in has its own endpoint because it re-evaluates eligibility.) */
 export async function changeAppointmentStatus(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
   const d = parse(appointmentStatusChange, input);
   await loadForAuth(db, ctx, id, "appointment.status");
   return db.transaction(async (tx) => {
-    const a = await lockAppointment(tx, ctx, id);
+    const a = await lockAppointment(tx, ctx.organizationId, id);
     if (a.status === d.status) return a;
     if (a.version !== d.version) throw versionConflict();
     const allowed = STATUS_TRANSITIONS[a.status as AppointmentStatus] ?? [];
-    if (!allowed.includes(d.status)) throw new AppError("CONFLICT", `Cannot change an appointment from ${a.status} to ${d.status}.`, [{ code: "BAD_TRANSITION", field: "status" }]);
-    if (d.status === "CHECKED_IN" && localDate(now, a.timezone) !== localDate(a.startAt, a.timezone))
-      throw new AppError("CONFLICT", "Check-in is only possible on the day of the visit.", [{ code: "NOT_VISIT_DAY", field: "status" }]);
+    if (!allowed.includes(d.status))
+      throw new AppError(
+        "CONFLICT",
+        d.status === "CHECKED_IN"
+          ? "Use check-in, which re-checks eligibility with the patient's current location."
+          : `Cannot change an appointment from ${a.status} to ${d.status}.`,
+        [{ code: "BAD_TRANSITION", field: "status" }],
+      );
     if (d.status === "NO_SHOW" && now < a.startAt) throw new AppError("CONFLICT", "A visit cannot be marked no-show before it starts.", [{ code: "NOT_STARTED", field: "status" }]);
     const [u] = await tx
       .update(appointments)
@@ -503,6 +694,252 @@ export async function changeAppointmentStatus(db: Db, ctx: AuthContext, id: stri
     await audit(tx, ctx, { action: "appointment.status", resourceType: "appointment", resourceId: id, metadata: { from: a.status, to: d.status } });
     return u!;
   });
+}
+
+/* --------------------------- re-evaluation at later commit points --------------------------- */
+
+/** Status after a re-evaluation of an existing booking. Never auto-confirms a PENDING booking (staff confirm). */
+function statusAfter(cur: string, decision: EligibilityResult["decision"]) {
+  if (decision === "BLOCK") return "NEEDS_RESCHEDULE";
+  if (decision === "REVIEW") return cur === "NEEDS_RESCHEDULE" ? "NEEDS_RESCHEDULE" : "PENDING";
+  return cur === "NEEDS_RESCHEDULE" ? "PENDING" : cur;
+}
+
+interface Applied {
+  appointment: typeof appointments.$inferSelect;
+  eligibility: EligibilityResult;
+  input: EvaluateInput;
+  changed: boolean;
+}
+
+/** Evaluate an existing appointment, persist the evaluation and apply the status mapping (one transaction). */
+async function reevaluate(
+  tx: Tx,
+  actor: Actor,
+  a: typeof appointments.$inferSelect,
+  o: { trigger: string; now: Date; patch?: Partial<EvaluateInput>; eventName: string; reason?: string | null; forceStatus?: string; persistIfUnchanged?: boolean },
+): Promise<Applied> {
+  const ei = inputFromAppointment(a, o.patch);
+  const r = await evaluateEligibility(tx, a.organizationId, ei, { capacity: null, now: o.now });
+  const status = o.forceStatus ?? statusAfter(a.status, r.decision);
+  const changed = r.decision !== a.eligibilityDecision || status !== a.status || !!o.patch;
+  if (!changed && !o.persistIfUnchanged) return { appointment: a, eligibility: r, input: ei, changed };
+  const evalId = await persistEvaluation(tx, actor, ei, r, { trigger: o.trigger, appointmentId: a.id });
+  const [u] = await tx
+    .update(appointments)
+    .set({
+      status,
+      patientLocationState: ei.patientLocationState,
+      patientLocationStatus: r.patientLocationStatus,
+      providerLocationState: r.providerLocationState,
+      eligibilityDecision: r.decision,
+      eligibilityStatus: statusForDecision(r.decision),
+      eligibilityEvaluationId: evalId,
+      version: a.version + 1,
+    })
+    .where(eq(appointments.id, a.id))
+    .returning();
+  await event(tx, actor, a.id, {
+    event: o.eventName,
+    from: a.status,
+    to: status,
+    reason: o.reason ?? `${r.decision}: ${codesOf(r).join(", ") || "all checks passed"}`,
+    before: { decision: a.eligibilityDecision, patientLocationState: a.patientLocationState },
+    after: { decision: r.decision, patientLocationState: ei.patientLocationState, evaluationId: evalId },
+  });
+  await audit(tx, actor, {
+    action: `appointment.${o.trigger.toLowerCase()}`,
+    resourceType: "appointment",
+    resourceId: a.id,
+    outcome: r.decision === "ALLOW" ? "ALLOW" : "DENY",
+    metadata: { decision: r.decision, codes: codesOf(r), from: a.status, to: status, evaluationId: evalId },
+  });
+  return { appointment: u!, eligibility: r, input: ei, changed: true };
+}
+
+/**
+ * Check-in re-checks eligibility with the patient's location confirmed NOW (fixture C: booked MD, now in DC).
+ * Video/audio visits require an explicit confirmation of the current location. If the result is not ALLOW the
+ * visit is stopped from routine progression: status → NEEDS_RESCHEDULE or PENDING, escalation task, audit,
+ * and the API answers 409/422 with the reasons — the stopped state is committed, not rolled back.
+ */
+export async function checkInAppointment(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
+  const d = parse(appointmentCheckIn, input);
+  await loadForAuth(db, ctx, id, "appointment.check_in");
+  const res = await db.transaction(async (tx) => {
+    const a = await lockAppointment(tx, ctx.organizationId, id);
+    if (a.status === "CHECKED_IN") return { applied: null, appointment: a };
+    if (a.version !== d.version) throw versionConflict();
+    if (a.status !== "CONFIRMED") throw new AppError("CONFLICT", "Only booked (confirmed) appointments can be checked in.", [{ code: "BAD_STATUS", field: "status" }]);
+    if (localDate(now, a.timezone) !== localDate(a.startAt, a.timezone))
+      throw new AppError("CONFLICT", "Check-in is only possible on the day of the visit.", [{ code: "NOT_VISIT_DAY", field: "status" }]);
+    let state: string;
+    if (a.modality === "IN_PERSON") {
+      const [s] = await tx.select({ state: sites.state }).from(sites).where(eq(sites.id, a.siteId));
+      state = s!.state; // the patient is physically at the site
+    } else {
+      if (!d.patientLocationState || !d.locationConfirmed)
+        throw new AppError("VALIDATION_FAILED", "Confirm where the patient is right now before checking in a video/audio visit.", [
+          { code: "LOCATION_CONFIRMATION_REQUIRED", field: "patientLocationState", message: "Ask the patient and record their current state." },
+        ]);
+      state = d.patientLocationState;
+    }
+    const moved = state !== a.patientLocationState;
+    const applied = await reevaluate(tx, ctx, a, {
+      trigger: "CHECK_IN",
+      now,
+      patch: { patientLocationState: state, patientLocationStatus: "VERIFIED" },
+      eventName: moved ? "LOCATION_CHANGED_AT_CHECK_IN" : "CHECK_IN_EVALUATED",
+      persistIfUnchanged: true,
+      forceStatus: undefined,
+    });
+    if (applied.eligibility.decision === "ALLOW") {
+      const [u] = await tx
+        .update(appointments)
+        .set({ status: "CHECKED_IN", version: applied.appointment.version + 1 })
+        .where(eq(appointments.id, id))
+        .returning();
+      await event(tx, ctx, id, { event: "CHECKED_IN", from: applied.appointment.status, to: "CHECKED_IN" });
+      await audit(tx, ctx, { action: "appointment.status", resourceType: "appointment", resourceId: id, metadata: { from: "CONFIRMED", to: "CHECKED_IN" } });
+      return { applied, appointment: u! };
+    }
+    return { applied, appointment: applied.appointment };
+  });
+  if (res.applied && res.applied.eligibility.decision !== "ALLOW") {
+    await ensureEligibilityTasks(db, ctx.organizationId, res.applied.input, res.applied.eligibility);
+    throw eligibilityError(res.applied.eligibility, " Check-in stopped; the appointment needs review before the visit can proceed.");
+  }
+  return res.appointment;
+}
+
+/** Record a changed/confirmed patient location before the visit and re-check immediately. */
+export async function changeAppointmentLocation(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
+  const d = parse(appointmentLocationChange, input);
+  await loadForAuth(db, ctx, id, "appointment.location");
+  const res = await db.transaction(async (tx) => {
+    const a = await lockAppointment(tx, ctx.organizationId, id);
+    if (a.version !== d.version) throw versionConflict();
+    if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(a.status))
+      throw new AppError("CONFLICT", "Location can only be changed on an upcoming booking.", [{ code: "BAD_STATUS", field: "status" }]);
+    return reevaluate(tx, ctx, a, {
+      trigger: "LOCATION_CHANGE",
+      now,
+      patch: { patientLocationState: d.patientLocationState, patientLocationStatus: d.patientLocationStatus },
+      eventName: "LOCATION_CHANGED",
+      reason: d.reason,
+      persistIfUnchanged: true,
+    });
+  });
+  if (res.eligibility.decision !== "ALLOW") await ensureEligibilityTasks(db, ctx.organizationId, res.input, res.eligibility);
+  return { appointment: res.appointment, eligibility: res.eligibility };
+}
+
+/** Manual "re-check eligibility now" (always persists a fresh evaluation). */
+export async function recheckAppointment(db: Db, ctx: AuthContext, id: string, now = new Date()) {
+  const cur = await loadForAuth(db, ctx, id, "appointment.recheck");
+  if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(cur.status))
+    throw new AppError("CONFLICT", "Only upcoming bookings are re-checked.", [{ code: "BAD_STATUS", field: "status" }]);
+  const res = await db.transaction(async (tx) => {
+    const a = await lockAppointment(tx, ctx.organizationId, id);
+    return reevaluate(tx, ctx, a, { trigger: "RECHECK", now, eventName: "ELIGIBILITY_RECHECKED", persistIfUnchanged: true });
+  });
+  if (res.eligibility.decision !== "ALLOW") await ensureEligibilityTasks(db, ctx.organizationId, res.input, res.eligibility);
+  return { appointment: res.appointment, eligibility: res.eligibility };
+}
+
+/** Confirm a PENDING (review) booking once eligibility is ALLOW. Re-evaluated now — never from a cached result. */
+export async function confirmPendingAppointment(db: Db, ctx: AuthContext, id: string, input: unknown, now = new Date()) {
+  assertBookingEnabled();
+  const d = parse(appointmentCancel.pick({ version: true }), input);
+  await loadForAuth(db, ctx, id, "appointment.confirm");
+  const res = await db.transaction(async (tx) => {
+    const a = await lockAppointment(tx, ctx.organizationId, id);
+    if (a.status === "CONFIRMED") return { applied: null, appointment: a };
+    if (a.version !== d.version) throw versionConflict();
+    if (a.status !== "PENDING") throw new AppError("CONFLICT", "Only pending bookings can be confirmed.", [{ code: "BAD_STATUS", field: "status" }]);
+    const applied = await reevaluate(tx, ctx, a, { trigger: "CONFIRM", now, eventName: "CONFIRM_EVALUATED", persistIfUnchanged: true });
+    if (applied.eligibility.decision !== "ALLOW") return { applied, appointment: applied.appointment };
+    const [u] = await tx
+      .update(appointments)
+      .set({ status: "CONFIRMED", version: applied.appointment.version + 1 })
+      .where(eq(appointments.id, id))
+      .returning();
+    await event(tx, ctx, id, { event: "CONFIRMED", from: "PENDING", to: "CONFIRMED" });
+    return { applied, appointment: u! };
+  });
+  if (res.applied && res.applied.eligibility.decision !== "ALLOW") throw eligibilityError(res.applied.eligibility, " The booking stays pending.");
+  return res.appointment;
+}
+
+/**
+ * Rescreen upcoming bookings (worker; also enqueued when evidence changes). Only writes when the decision or
+ * status changes, so repeated runs are idempotent. Bookings that became REVIEW/BLOCK are moved out of the
+ * routine flow (PENDING / NEEDS_RESCHEDULE) and follow-up tasks are created; nothing is cancelled or re-booked.
+ */
+export async function rescreenUpcoming(db: Db, opts: { organizationId?: string; practitionerId?: string; now?: Date; days?: number } = {}) {
+  const now = opts.now ?? new Date();
+  const until = new Date(now.getTime() + (opts.days ?? 14) * 86_400_000);
+  const rows = await db
+    .select({ id: appointments.id, organizationId: appointments.organizationId })
+    .from(appointments)
+    .where(
+      and(
+        inArray(appointments.status, ["CONFIRMED", "PENDING"]),
+        gt(appointments.startAt, now),
+        lt(appointments.startAt, until),
+        opts.organizationId ? eq(appointments.organizationId, opts.organizationId) : undefined,
+        opts.practitionerId ? eq(appointments.practitionerId, opts.practitionerId) : undefined,
+      ),
+    );
+  let changed = 0;
+  for (const row of rows) {
+    const system = { system: "scheduling.rescreen", organizationId: row.organizationId };
+    const res = await db.transaction(async (tx) => {
+      const a = await lockAppointment(tx, row.organizationId, row.id);
+      if (!["CONFIRMED", "PENDING"].includes(a.status)) return null;
+      return reevaluate(tx, system, a, { trigger: "RESCREEN", now, eventName: "ELIGIBILITY_CHANGED" });
+    });
+    if (res?.changed) {
+      changed++;
+      if (res.eligibility.decision !== "ALLOW") await ensureEligibilityTasks(db, row.organizationId, res.input, res.eligibility);
+    }
+  }
+  return { screened: rows.length, changed };
+}
+
+/** Explain eligibility for a candidate without persisting (search preview / new-appointment panel). */
+export async function explainEligibility(db: Db, ctx: AuthContext, input: unknown, now = new Date()) {
+  const d = parse(eligibilityEvaluate, input);
+  if (!can(ctx, "scheduling.read", { siteId: d.siteId })) await requireAtSite(db, ctx, "scheduling.read", d.siteId, "eligibility.explain");
+  const type = await loadType(db, ctx.organizationId, d.appointmentTypeId);
+  const [site] = await db
+    .select()
+    .from(sites)
+    .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, d.siteId)));
+  if (!site) throw notFound("Site");
+  const start = new Date(d.startAt);
+  const { input: avail } = await loadAvailability(db, ctx.organizationId, {
+    practitionerIds: [d.practitionerId],
+    siteIds: [d.siteId],
+    fromDate: addDays(localDate(start, site.timezone), -1),
+    days: 3,
+    type,
+    modality: d.modality,
+    now,
+    excludeHoldId: d.holdId,
+  });
+  const c = checkCandidate(avail, d.practitionerId, d.siteId, start);
+  const ei: EvaluateInput = {
+    practitionerId: d.practitionerId,
+    siteId: d.siteId,
+    appointmentTypeId: d.appointmentTypeId,
+    modality: d.modality,
+    startAt: start,
+    patientLocationState: d.patientLocationState ?? null,
+    patientLocationStatus: d.patientLocationState ? d.patientLocationStatus : "UNKNOWN",
+    payerPlanId: d.payerPlanId ?? null,
+  };
+  return evaluateEligibility(db, ctx.organizationId, ei, { capacity: c.ok ? { ok: true } : { ok: false, reason: c.reason }, now });
 }
 
 /** Human-readable local label with explicit zone (used in API responses and the UI). */

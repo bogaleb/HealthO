@@ -42,5 +42,19 @@
 | SCH-07 | Stale hold blocks until explicitly released; worker idempotent across 3 concurrent runs; owner cannot use expired hold | int | ✅ |
 | — | Unauthorized booking: wrong site (403 + DENY audit), no scheduling.manage, other org, unauthenticated; demo flag off → BOOKING_DISABLED | int + e2e | ✅ |
 | — | Idempotency-Key replay; append-only appointment history; reservations cannot be deleted | int + e2e | ✅ |
-| LIC-12, EHR-*, RCM-01 | Booking-time eligibility, EHR, RCM | — | ⏳ Phases 5–7 |
+| LIC-01/02/04 | VA-only physician; VA-home patient physically in MD; IMLC claim | `eligibility.unit.test.ts` + `eligibility.int.test.ts` (409, persisted attempt, DENY audit, one task) + e2e (not offered) | ✅ booking level |
+| LIC-03 / fixture C | Booked MD, patient in DC at check-in → stopped, PENDING, evaluation + event | unit + int | ✅ |
+| LIC-05/06 | RN multistate with explicit home-state rule; never for APRN | unit | ✅ |
+| LIC-07 | Psychologist without verified APIT → REVIEW; verified APIT → ALLOW | unit | ✅ |
+| LIC-08 / fixture G | Expired (Nov 1 after Oct 31) / suspended → BLOCK; suspension after booking → rescreen → NEEDS_RESCHEDULE | unit + int | ✅ |
+| LIC-09 / fixture H | No rule, overdue rule review, unverified evidence → REVIEW | unit | ✅ |
+| LIC-10 / fixture F | Payer approved at site 1 only → site 2 BLOCK; self-pay ALLOW | unit + int | ✅ |
+| LIC-11 | Provider physically outside the rule's permitted states → REVIEW | unit | ✅ |
+| LIC-12 / fixture K | Video with no patient location → REVIEW LOCATION_UNKNOWN | unit + int | ✅ |
+| fixture J | EHR master stale → REVIEW (saved as pending draft); read-only → BLOCK | unit + int | ✅ |
+| fixture I | Two schedulers race for one eligible slot → one booking, one 409 | int + e2e | ✅ |
+| — | Search, explain endpoint and booking derive the same decision; stale evaluation reported; re-check persists fresh | int | ✅ |
+| — | Waitlist: eligible matches only, offer holds + expires (idempotent), accept books, invalidated on lost eligibility | int + e2e | ✅ |
+| SEC-02 | Scheduler cannot publish policy (403 + DENY audit); approval audited and queues rescreen | int + e2e | ✅ |
+| EHR-*, RCM-01 | EHR, RCM | — | ⏳ Phases 6–7 |
 | OPS-02 | Backup restore drill | — | ⏳ Phase 8 |

@@ -4,7 +4,7 @@ import { authorityVerifications, memberships, professionalAuthorities } from "@p
 import type { AuthContext } from "@projectos/auth";
 import { audit, authorize, parse } from "@projectos/core";
 import { AppError, authorityCreate, authorityReject, authorityReview, authorityStatusChange, authoritySubmit, notFound, versionConflict } from "@projectos/shared";
-import { canOnPractitioner, dualControlEnabled, loadPractitioner } from "./access";
+import { canOnPractitioner, dualControlEnabled, loadPractitioner, requestRescreen } from "./access";
 
 type Authority = typeof professionalAuthorities.$inferSelect;
 
@@ -114,7 +114,7 @@ export async function verifyAuthority(db: Db, ctx: AuthContext, id: string, inpu
     await audit(db, ctx, { action: "authority.verify", resourceType: "authority", resourceId: id, outcome: "DENY", metadata: { reason: "dual_control" } });
     throw new AppError("FORBIDDEN", "Dual control: someone other than the person who entered or submitted this evidence must verify it.");
   }
-  return db.transaction((tx) =>
+  const out = await db.transaction((tx) =>
     transition(
       tx,
       ctx,
@@ -131,6 +131,8 @@ export async function verifyAuthority(db: Db, ctx: AuthContext, id: string, inpu
       },
     ),
   );
+  await requestRescreen(db, ctx.organizationId, `authority:${id}:${d.version + 1}`, a.practitionerId);
+  return out;
 }
 
 export async function rejectAuthority(db: Db, ctx: AuthContext, id: string, input: unknown) {
@@ -147,5 +149,7 @@ export async function changeAuthorityStatus(db: Db, ctx: AuthContext, id: string
   await requirePerm(db, ctx, "credentialing.approve", siteIds, "authority.status", id);
   const d = parse(authorityStatusChange, input);
   if (a.status === "REVOKED") throw new AppError("CONFLICT", "Revoked authority cannot change status.");
-  return db.transaction((tx) => transition(tx, ctx, a, d.version, d.status, {}, { action: d.status === "SUSPENDED" ? "SUSPEND" : "REVOKE", note: d.note }));
+  const out = await db.transaction((tx) => transition(tx, ctx, a, d.version, d.status, {}, { action: d.status === "SUSPENDED" ? "SUSPEND" : "REVOKE", note: d.note }));
+  await requestRescreen(db, ctx.organizationId, `authority:${id}:${d.version + 1}`, a.practitionerId);
+  return out;
 }
