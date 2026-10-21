@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { History, Plus } from "lucide-react";
 import { Button, Dialog, Spinner } from "@projectos/ui";
@@ -117,7 +118,7 @@ export function AuthorityActions({ a, canEdit, canApprove }: { a: { id: string; 
             setErr(null);
             try {
               await apiFetch(`/api/v1/authorities/${a.id}/submit-review`, { method: "POST", body: { version: a.version } });
-              router.refresh();
+              reliableRefresh(router);
             } catch (e) {
               setErr(errorMessage(e));
             } finally {

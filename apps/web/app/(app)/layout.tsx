@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@projectos/db";
 import { organizations } from "@projectos/db/schema";
@@ -68,6 +69,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
           <main id="main" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8">
             {children}
+            {/* Changes on every server render; lets clients confirm a router.refresh() was committed. */}
+            <span hidden data-render-stamp={randomUUID()} />
           </main>
         </div>
       </div>

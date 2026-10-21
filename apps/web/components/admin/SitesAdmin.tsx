@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus } from "lucide-react";
 import { Badge, Button, Card, CardHeader, Dialog, EmptyState, ErrorState, Field, Input, Select } from "@projectos/ui";
@@ -57,7 +58,7 @@ function SiteDialog({ site, open, onClose }: { site: Site | null; open: boolean;
             if (site) await apiFetch(`/api/v1/sites/${site.id}`, { method: "PATCH", body: { ...body, version: site.version } });
             else await apiFetch("/api/v1/sites", { method: "POST", body });
             onClose();
-            router.refresh();
+            reliableRefresh(router);
           } catch (err) {
             setError(errorMessage(err));
             if (err instanceof ApiError) setFe(err.fieldErrors());
@@ -165,7 +166,7 @@ export function SitesAdmin({ sites, canCreate, manageable }: { sites: Site[]; ca
                           setErr(null);
                           try {
                             await apiFetch(`/api/v1/sites/${s.id}`, { method: "PATCH", body: { active: !s.active, version: s.version } });
-                            router.refresh();
+                            reliableRefresh(router);
                           } catch (e) {
                             setErr(errorMessage(e));
                           }
@@ -229,7 +230,7 @@ export function DepartmentsAdmin({ departments, teams, sites, canManage }: { dep
               try {
                 await apiFetch("/api/v1/departments", { method: "POST", body: { ...d, siteId: d.siteId || null } });
                 setD({ code: "", name: "", siteId: "" });
-                router.refresh();
+                reliableRefresh(router);
               } catch (e2) {
                 setErr(errorMessage(e2));
               }
@@ -264,7 +265,7 @@ export function DepartmentsAdmin({ departments, teams, sites, canManage }: { dep
                 try {
                   await apiFetch("/api/v1/teams", { method: "POST", body: t });
                   setT({ ...t, name: "" });
-                  router.refresh();
+                  reliableRefresh(router);
                 } catch (e2) {
                   setErr(errorMessage(e2));
                 }

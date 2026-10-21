@@ -4,6 +4,8 @@ import { ALERT } from "./helpers";
 
 async function openBillBoard(page: import("@playwright/test").Page) {
   await page.getByRole("link", { name: "Projects", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await settle(page);
   await page.getByRole("link", { name: /Billing Improvement/ }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/board$/);
   await settle(page);
@@ -100,6 +102,8 @@ test("list view filters are in the URL; calendar shows due tasks; My Work groups
   await settle(page);
   await expect(page.getByRole("heading", { name: /Overdue \(\d+\)/ })).toBeVisible();
   await page.getByRole("link", { name: "Projects", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await settle(page);
   await page.getByRole("link", { name: /Billing Improvement/ }).click();
   await page.getByRole("link", { name: "List", exact: true }).click();
   await expect(page).toHaveURL(/\/list$/);

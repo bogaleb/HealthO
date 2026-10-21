@@ -125,7 +125,9 @@ test("case queue: create case, link a project task, completing the case complete
   await row.getByRole("button", { name: "Link task" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Create task" }).click();
   await expect(row).toContainText("To do");
+  const patched = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().includes("/api/v1/credentialing/cases/"));
   await row.getByLabel("Case status").selectOption("COMPLETED");
+  expect((await patched).status()).toBe(200);
   await page.goto("/credentialing/cases?open=false");
   await settle(page);
   await expect(page.locator("tr", { hasText: title })).toContainText("Done");

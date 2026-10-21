@@ -1,5 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Button, Dialog, ErrorState, Field, Input, Select, Textarea } from "@projectos/ui";
 import { ApiError, errorMessage } from "@/lib/client";
@@ -82,7 +83,7 @@ export function FormDialog({
             try {
               await onSubmit(v);
               setOpen(false);
-              router.refresh();
+              reliableRefresh(router);
             } catch (err) {
               setError(errorMessage(err));
               if (err instanceof ApiError) setFe(err.fieldErrors());

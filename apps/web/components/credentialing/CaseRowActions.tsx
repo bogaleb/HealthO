@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Button, Select } from "@projectos/ui";
 import { CASE_STATUSES } from "@projectos/shared";
@@ -23,7 +24,7 @@ export function CaseRowActions({ c, canEdit, projects }: { c: { id: string; stat
           try {
             const r = await apiFetch<{ taskSync: string | null }>(`/api/v1/credentialing/cases/${c.id}`, { method: "PATCH", body: { status: e.target.value, version: c.version } });
             if (r.taskSync && r.taskSync !== "DONE") setErr(`Linked task not updated: ${r.taskSync}`);
-            router.refresh();
+            reliableRefresh(router);
           } catch (x) {
             setErr(errorMessage(x));
           }

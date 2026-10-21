@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, Lock } from "lucide-react";
@@ -46,7 +47,7 @@ export function Board({ projectId, initialTasks, canEdit, members }: { projectId
   const [dropHint, setDropHint] = useState<{ status: string; beforeId: string | null } | null>(null);
   const pending = useRef(0);
 
-  // Adopt server state after router.refresh(), unless a move is in flight.
+  // Adopt server state after a refresh, unless a move is in flight.
   useEffect(() => {
     if (pending.current === 0) setTasks(initialTasks);
   }, [initialTasks]);
@@ -87,7 +88,7 @@ export function Board({ projectId, initialTasks, canEdit, members }: { projectId
       setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, version: updated.version, position: updated.position, status: updated.status } : t)));
       setAnnounce(`${task.projectKey}-${task.number} moved to ${TASK_STATUS_LABEL[status as TaskStatus]}.`);
       pending.current -= 1;
-      router.refresh();
+      reliableRefresh(router);
     } catch (e) {
       pending.current -= 1;
       setTasks(before); // roll back

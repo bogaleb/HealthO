@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button, Dialog, ErrorState, Field, Input, Select, Textarea } from "@projectos/ui";
@@ -59,7 +60,7 @@ export function NewTaskButton({
       setOpen(false);
       setF(blank);
       setIdemKey(crypto.randomUUID());
-      router.refresh();
+      reliableRefresh(router);
     } catch (err) {
       setError(errorMessage(err));
       if (err instanceof ApiError) setFieldErrors(err.fieldErrors());

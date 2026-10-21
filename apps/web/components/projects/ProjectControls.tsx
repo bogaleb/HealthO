@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Button, ErrorState, Field, Input, Select, Textarea } from "@projectos/ui";
 import { PROJECT_HEALTH, PROJECT_STATUSES, TASK_PRIORITIES } from "@projectos/shared";
@@ -38,7 +39,7 @@ export function ProjectSettingsForm({ project, members }: { project: ProjectLite
             body: { ...f, description: f.description || null, ownerUserId: f.ownerUserId || null, startDate: f.startDate || null, dueDate: f.dueDate || null, version: project.version },
           });
           setMsg({ ok: true, text: "Saved." });
-          router.refresh();
+          reliableRefresh(router);
         } catch (err) {
           setMsg({ ok: false, text: errorMessage(err) });
         } finally {
@@ -116,7 +117,7 @@ export function AddMilestoneForm({ projectId }: { projectId: string }) {
           await apiFetch(`/api/v1/projects/${projectId}/milestones`, { method: "POST", body: { name, dueDate: due || null } });
           setName("");
           setDue("");
-          router.refresh();
+          reliableRefresh(router);
         } catch (e2) {
           setErr(errorMessage(e2));
         } finally {
@@ -167,7 +168,7 @@ export function AddRecurringForm({ projectId, members, defaultStart }: { project
             },
           });
           setF(blank);
-          router.refresh();
+          reliableRefresh(router);
         } catch (e2) {
           setErr(errorMessage(e2));
         } finally {

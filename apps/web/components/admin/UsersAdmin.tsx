@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { Badge, Button, Card, Dialog, EmptyState, ErrorState, Field, Input, Select } from "@projectos/ui";
@@ -207,7 +208,7 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
                             setError(null);
                             try {
                               await apiFetch(`/api/v1/users/${m.membershipId}`, { method: "PATCH", body: { status: m.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE", version: m.version } });
-                              router.refresh();
+                              reliableRefresh(router);
                             } catch (e) {
                               setError(errorMessage(e));
                             }
@@ -262,7 +263,7 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
                 try {
                   await apiFetch(`/api/v1/users/${editing.membershipId}/roles`, { method: "PUT", body: { grants, version: editing.version } });
                   setEditing(null);
-                  router.refresh();
+                  reliableRefresh(router);
                 } catch (e) {
                   setError(errorMessage(e));
                 } finally {
@@ -288,13 +289,13 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
         onClose={() => {
           setInviteOpen(false);
           setToken(null);
-          router.refresh();
+          reliableRefresh(router);
         }}
         title="Invite staff member"
         description="Local synthetic invite: no email is sent. Share the one-time code securely; it is shown only once."
         footer={
           token ? (
-            <Button onClick={() => { setInviteOpen(false); setToken(null); router.refresh(); }}>Done</Button>
+            <Button onClick={() => { setInviteOpen(false); setToken(null); reliableRefresh(router); }}>Done</Button>
           ) : (
             <>
               <Button variant="secondary" onClick={() => setInviteOpen(false)}>

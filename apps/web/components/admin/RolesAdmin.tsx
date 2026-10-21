@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Badge, Button, Card, Dialog, ErrorState, Field, Input } from "@projectos/ui";
@@ -92,7 +93,7 @@ export function RolesAdmin({ roles, canManage, held }: { roles: Role[]; canManag
                   if (editing === "new") await apiFetch("/api/v1/roles", { method: "POST", body: { name, description: description || null, permissions: perms } });
                   else if (editing) await apiFetch(`/api/v1/roles/${editing.id}`, { method: "PATCH", body: { name, description: description || null, permissions: perms, version: editing.version } });
                   setEditing(null);
-                  router.refresh();
+                  reliableRefresh(router);
                 } catch (e) {
                   setError(errorMessage(e));
                 } finally {
