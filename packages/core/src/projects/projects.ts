@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
-import type { Db } from "@projectos/db";
+import { qualified, type Db } from "@projectos/db";
 import { memberships, milestones, projectTemplates, projects, tasks } from "@projectos/db/schema";
 import { can, type AuthContext } from "@projectos/auth";
 import { AppError, addDays, milestoneCreate, notFound, projectCreate, projectUpdate, todayIn, versionConflict, type TaskPriority } from "@projectos/shared";
@@ -28,9 +28,9 @@ export async function listProjects(db: Db, ctx: AuthContext, opts: { status?: st
     .select({
       project: projects,
       ownerName: memberships.displayName,
-      openTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${projects.id} and t.deleted_at is null and t.status not in ('DONE','CANCELLED'))`,
-      doneTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${projects.id} and t.deleted_at is null and t.status = 'DONE')`,
-      overdueTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${projects.id} and t.deleted_at is null and t.status not in ('DONE','CANCELLED') and t.due_date < (now() at time zone t.due_timezone)::date)`,
+      openTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${qualified(projects.id)} and t.deleted_at is null and t.status not in ('DONE','CANCELLED'))`,
+      doneTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${qualified(projects.id)} and t.deleted_at is null and t.status = 'DONE')`,
+      overdueTasks: sql<number>`(select count(*)::int from ${tasks} t where t.project_id = ${qualified(projects.id)} and t.deleted_at is null and t.status not in ('DONE','CANCELLED') and t.due_date < (now() at time zone t.due_timezone)::date)`,
     })
     .from(projects)
     .leftJoin(memberships, and(eq(memberships.userId, projects.ownerUserId), eq(memberships.organizationId, projects.organizationId)))
@@ -51,8 +51,8 @@ export async function getProjectDetail(db: Db, ctx: AuthContext, id: string) {
   const ms = await db
     .select({
       milestone: milestones,
-      total: sql<number>`(select count(*)::int from ${tasks} t where t.milestone_id = ${milestones.id} and t.deleted_at is null)`,
-      done: sql<number>`(select count(*)::int from ${tasks} t where t.milestone_id = ${milestones.id} and t.deleted_at is null and t.status = 'DONE')`,
+      total: sql<number>`(select count(*)::int from ${tasks} t where t.milestone_id = ${qualified(milestones.id)} and t.deleted_at is null)`,
+      done: sql<number>`(select count(*)::int from ${tasks} t where t.milestone_id = ${qualified(milestones.id)} and t.deleted_at is null and t.status = 'DONE')`,
     })
     .from(milestones)
     .where(and(eq(milestones.organizationId, ctx.organizationId), eq(milestones.projectId, id)))

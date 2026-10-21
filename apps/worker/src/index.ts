@@ -1,5 +1,6 @@
 import { createDb, loadRootEnv } from "@projectos/db";
-import { enqueueJob, recoverStaleJobs, runDueJobs } from "@projectos/core";
+import { JOB_HANDLERS, enqueueJob, recoverStaleJobs, runDueJobs } from "@projectos/core";
+import { runCredentialDeadlines } from "@projectos/credentialing";
 import { logger, todayIn } from "@projectos/shared";
 
 /**
@@ -11,6 +12,8 @@ loadRootEnv();
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 30_000);
 const once = process.argv.includes("--once");
 const { db, sql } = createDb(undefined, 3);
+// Credential expiry + 90/60/30-day renewal tasks (idempotent; safe to run repeatedly).
+JOB_HANDLERS["credentialing.deadlines"] = (d, p) => runCredentialDeadlines(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
 let stopping = false;
 
 async function tick() {
@@ -18,6 +21,7 @@ async function tick() {
   // Hourly key so newly-created definitions are picked up the same day; generator itself is idempotent.
   const hour = new Date().toISOString().slice(0, 13);
   await enqueueJob(db, "recurring.generate", `recurring.generate:${day}:${hour}`);
+  await enqueueJob(db, "credentialing.deadlines", `credentialing.deadlines:${day}`);
   const recovered = await recoverStaleJobs(db);
   const ran = await runDueJobs(db);
   if (ran || recovered) logger.info("worker.tick", { ran, recovered });

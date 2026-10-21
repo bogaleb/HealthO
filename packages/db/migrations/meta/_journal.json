@@ -15,6 +15,27 @@
       "when": 1792549557818,
       "tag": "0001_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792554052162,
+      "tag": "0002_credentialing",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792554053363,
+      "tag": "0003_credentialing_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792554226823,
+      "tag": "0004_enrollment_status_setter",
+      "breakpoints": true
     }
   ]
 }

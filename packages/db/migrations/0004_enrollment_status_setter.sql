@@ -1,0 +1,1 @@
+ALTER TABLE "provider_enrollments" ADD COLUMN "status_set_by" uuid;

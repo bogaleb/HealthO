@@ -32,5 +32,28 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | POST, PATCH/DELETE | /api/v1/tasks/:id/checklist[/:itemId] | edit | |
 | POST, DELETE | /api/v1/tasks/:id/dependencies[/:depId] | edit | 422 `DEPENDENCY_CYCLE` |
 | POST | /api/v1/jobs/recurring | org-wide `org.manage` | run generator now (idempotent) |
+| **Credentialing (Phase 3)** | | | |
+| GET/POST | /api/v1/practitioners | `credentialing.read` / `credentialing.edit` (org-wide or site) | GET filters: profession, state, siteId, q, includeInactive |
+| GET/PATCH | /api/v1/practitioners/:id | read / edit | PATCH needs `version`; replaces site/specialty/service links when provided |
+| GET/POST | /api/v1/practitioners/:id/authorities | read / edit | POST creates a **DRAFT**; profession must match the provider |
+| GET | /api/v1/practitioners/:id/readiness?date | read | license (IN_PERSON + VIDEO) × jurisdiction and payer readiness |
+| POST | /api/v1/authorities/:id/submit-review | edit | DRAFT/REJECTED → SUBMITTED |
+| POST | /api/v1/authorities/:id/approve | `credentialing.approve`; dual control | SUBMITTED → VERIFIED with primary-source fields |
+| POST | /api/v1/authorities/:id/reject | approve | SUBMITTED → REJECTED (reason required) |
+| POST | /api/v1/authorities/:id/status | approve | SUSPENDED / REVOKED (reason required) |
+| GET | /api/v1/authorities/:id/history | read | append-only verification history |
+| GET/POST | /api/v1/policy-rules | read: credentialing.read or policy.publish · create draft: org-wide credentialing.edit or policy.publish | multistate/APIT bases require `acceptedHomeStates` |
+| POST | /api/v1/policy-rules/:id/approve | org-wide `policy.publish`; dual control | supersedes the prior approved version |
+| POST | /api/v1/policy-rules/:id/retire | `policy.publish` | |
+| GET/POST | /api/v1/payers, POST /api/v1/payer-plans | read / org-wide edit | |
+| POST | /api/v1/enrollments | edit | per provider × plan × site (site must be affiliated) |
+| PATCH | /api/v1/enrollments/:id | edit | APPROVED needs `approvedOn` + `effectiveOn`; any change clears verification |
+| POST | /api/v1/enrollments/:id/verify | approve; dual control | |
+| GET/POST | /api/v1/credentialing/cases | read / edit | GET filters: status, caseType, ownerUserId, practitionerId, open |
+| PATCH | /api/v1/credentialing/cases/:id | edit | COMPLETED moves the linked project task to Done (`taskSync` in response) |
+| POST | /api/v1/credentialing/cases/:id/link-task | edit + project edit | creates a project task (idempotent per case) |
+| GET | /api/v1/credentialing/readiness?modality&date&profession | read | full matrix (license + payer) with reasons and evidence IDs |
+| GET | /api/v1/credentialing/reference | read | sites, specialties, services |
+| POST | /api/v1/jobs/credentialing-deadlines | org-wide `org.manage` | expiry + 90/60/30-day renewal tasks (idempotent; worker runs daily) |
 
 An OpenAPI document is not generated yet (tracked in PROGRESS.md).

@@ -20,6 +20,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (hasAny(ctx, "users.manage")) admin.push({ href: "/admin/users", label: "Staff & Permissions", icon: "users" });
   if (hasAny(ctx, "users.manage") || hasAny(ctx, "org.manage")) admin.push({ href: "/admin/roles", label: "Roles", icon: "roles" });
   admin.push({ href: "/admin/sites", label: "Sites & Departments", icon: "sites" });
+  if (hasAny(ctx, "credentialing.read") || hasAny(ctx, "policy.publish")) admin.push({ href: "/admin/rules", label: "License Policy Rules", icon: "rules" });
+  const cred: NavItem[] = hasAny(ctx, "credentialing.read")
+    ? [
+        { href: "/providers", label: "Providers", icon: "providers" },
+        { href: "/credentialing/cases", label: "Credentialing Cases", icon: "cases" },
+        { href: "/credentialing/readiness", label: "Readiness Matrix", icon: "readiness" },
+        { href: "/credentialing/payers", label: "Payers & Plans", icon: "payers" },
+      ]
+    : [];
   if (hasAny(ctx, "audit.read")) admin.push({ href: "/admin/audit", label: "Audit Log", icon: "audit" });
 
   return (
@@ -37,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {org?.name}
             </div>
           </div>
-          <SideNav main={main} admin={admin} />
+          <SideNav sections={[{ items: main }, { title: "Credentialing", items: cred }, { title: "Administration", items: admin }]} />
           <div className="border-t border-white/10 px-3 py-3">
             <div className="truncate px-1 text-[13px] text-slate-200">{ctx.displayName}</div>
             <div className="mt-1.5">
@@ -51,7 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <SignOutButton />
           </header>
           <nav aria-label="Mobile" className="flex gap-3 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 text-sm md:hidden">
-            {[...main, ...admin].map((n) => (
+            {[...main, ...cred, ...admin].map((n) => (
               <a key={n.href} href={n.href} className="whitespace-nowrap text-slate-700">
                 {n.label}
               </a>

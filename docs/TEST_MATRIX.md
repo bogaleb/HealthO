@@ -19,5 +19,19 @@
 | — | Version conflicts (site, project, task) → 409 | int | ✅ |
 | — | Department-scoped visibility (RCM sees only BILL) | int + e2e | ✅ |
 | — | 401 unauthenticated, 422 field details, malformed JSON, cross-origin 403 | e2e | ✅ |
-| SCH-*, LIC-*, EHR-*, RCM-01, CRED-* | Scheduling, licensure, EHR, RCM, credentialing | — | ⏳ Phases 3–7 |
+| LIC-01/02 | VA-only verified physician; patient physically in MD | `readiness.unit.test.ts` (fixture B) + e2e matrix | ✅ readiness level (booking in Phase 5) |
+| LIC-03 | DC location has no approved rule | unit (fixture C) + e2e (`cell-D-DC`) | ✅ readiness level; check-in re-evaluation is Phase 5 |
+| LIC-04 | IMLC membership claim ≠ MD license | unit + DB CHECK (claim can't be a rule basis) | ✅ |
+| LIC-05 / LIC-06 | RN multistate allowed only with explicit home-state rule; never for APRN | unit + e2e (`cell-B2-MD`) | ✅ |
+| LIC-07 | Psychologist without verified APIT | unit (fixture E) | ✅ |
+| LIC-08 / LIC-09 | Expired (day after) / suspended authority | unit (fixture G) + int + e2e (suspend → Blocked) | ✅ |
+| LIC-10 (policy) | No approved / stale rule → review, `canConfirm=false` | unit (fixture H) | ✅ |
+| LIC-10 (payer) / CRED-02 / fixture F | Payer approved at Site A only | unit + int + e2e | ✅ |
+| LIC-11 | Provider physically outside rule's permitted states | unit | ✅ |
+| CRED-01 | Submitter cannot self-verify (dual control) | int + e2e | ✅ |
+| SEC-02 | Specialist/scheduler cannot publish a rule; author cannot approve own rule | int + e2e (HTTP 403) | ✅ |
+| OPS-01 | Credential deadline job: one task per threshold, idempotent across reruns + concurrent runs | `credentialing.int.test.ts` | ✅ |
+| — | Approved rules immutable; verification history append-only (DB triggers) | int | ✅ |
+| — | Phase 3 exit: readiness changes when evidence is verified / suspended / payer approved+verified | int + e2e | ✅ |
+| SCH-*, LIC-12, EHR-*, RCM-01 | Scheduling, booking-time eligibility, EHR, RCM | — | ⏳ Phases 4–7 |
 | OPS-02 | Backup restore drill | — | ⏳ Phase 8 |

@@ -28,3 +28,31 @@ export function formatInstant(i: string | Date | null | undefined, timeZone = "A
   const d = typeof i === "string" ? new Date(i) : i;
   return `${d.toLocaleString("en-US", { timeZone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`;
 }
+
+export const AUTHORITY_STATUS_TONE: Record<string, Tone> = {
+  DRAFT: "neutral",
+  SUBMITTED: "amber",
+  VERIFIED: "green",
+  REJECTED: "red",
+  SUSPENDED: "red",
+  REVOKED: "red",
+  EXPIRED: "red",
+};
+export const READINESS_TONE: Record<string, Tone> = { ALLOW: "green", REVIEW: "amber", BLOCK: "red" };
+export const READINESS_LABEL: Record<string, string> = {
+  VERIFIED_ELIGIBLE: "Eligible",
+  NEEDS_VERIFICATION: "Needs verification",
+  EXPIRED: "Expired",
+  VERIFIED_INELIGIBLE: "Blocked",
+  POLICY_UNAVAILABLE: "No approved policy",
+};
+export const PAYER_TONE: Record<string, Tone> = { READY: "green", NOT_READY: "red", UNKNOWN: "amber", NOT_REQUIRED: "neutral" };
+export const PAYER_LABEL: Record<string, string> = { READY: "Ready", NOT_READY: "Not ready", UNKNOWN: "Unverified", NOT_REQUIRED: "Not required" };
+export const ENROLLMENT_TONE: Record<string, Tone> = { NOT_STARTED: "neutral", SUBMITTED: "amber", AWAITING_INFO: "amber", APPROVED: "green", DENIED: "red", TERMINATED: "red" };
+export const CASE_STATUS_TONE: Record<string, Tone> = { OPEN: "neutral", IN_PROGRESS: "blue", WAITING_EXTERNAL: "amber", COMPLETED: "green", CANCELLED: "neutral" };
+export const humanize = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+
+/** Days from `today` to a date-only value (negative = past). */
+export function daysUntil(d: string, today: string) {
+  return Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+}

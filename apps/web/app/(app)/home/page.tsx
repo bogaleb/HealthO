@@ -128,7 +128,7 @@ export default async function HomePage() {
               <Badge tone="green">Staff, roles &amp; sites</Badge>
               <Badge tone="green">Audit log</Badge>
               <Badge>Scheduling — Phase 4–5</Badge>
-              <Badge>Credentialing — Phase 3</Badge>
+              <Badge tone="green">Credentialing &amp; readiness</Badge>
               <Badge>Revenue cycle — Phase 6</Badge>
             </dd>
           </div>

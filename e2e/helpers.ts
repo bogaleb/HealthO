@@ -8,6 +8,8 @@ export const USERS = {
   rcm: "riley.shah@riverbend.example",
   cred: "casey.lin@riverbend.example",
   auditor: "jordan.kim@riverbend.example",
+  approver: "morgan.reyes@riverbend.example",
+  compliance: "dana.brooks@riverbend.example",
 };
 
 /** Wait until client components are hydrated (no pending network) before interacting. */

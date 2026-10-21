@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, count, desc, eq, gte, ilike, isNull, lt, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
-import type { Db, Tx } from "@projectos/db";
+import { qualified, type Db, type Tx } from "@projectos/db";
 import {
   checklistItems,
   idempotencyKeys,
@@ -40,9 +40,9 @@ export type TaskRow = typeof tasks.$inferSelect;
 /** SQL: task has at least one unfinished BLOCKS dependency. */
 export const isBlockedSql = sql<boolean>`exists (
   select 1 from task_dependencies d join tasks b on b.id = d.blocking_task_id
-  where d.blocked_task_id = ${tasks.id} and d.kind = 'BLOCKS' and b.deleted_at is null and b.status not in ('DONE','CANCELLED'))`;
+  where d.blocked_task_id = ${qualified(tasks.id)} and d.kind = 'BLOCKS' and b.deleted_at is null and b.status not in ('DONE','CANCELLED'))`;
 
-const ownerName = sql<string | null>`(select m.display_name from memberships m where m.user_id = ${tasks.ownerUserId} and m.organization_id = ${tasks.organizationId})`;
+const ownerName = sql<string | null>`(select m.display_name from memberships m where m.user_id = ${qualified(tasks.ownerUserId)} and m.organization_id = ${qualified(tasks.organizationId)})`;
 
 async function loadTaskWithProject(db: Db | Tx, ctx: AuthContext, taskId: string) {
   const [row] = await db
@@ -331,7 +331,7 @@ export async function listTasks(db: Db, ctx: AuthContext, query: unknown) {
   if (q.dueTo) where.push(lte(tasks.dueDate, q.dueTo));
   if (q.open === "true") where.push(notInArray(tasks.status, ["DONE", "CANCELLED"]));
   if (q.mine === "true") {
-    where.push(or(eq(tasks.ownerUserId, ctx.userId), sql`exists (select 1 from task_collaborators c where c.task_id = ${tasks.id} and c.user_id = ${ctx.userId})`)!);
+    where.push(or(eq(tasks.ownerUserId, ctx.userId), sql`exists (select 1 from task_collaborators c where c.task_id = ${qualified(tasks.id)} and c.user_id = ${ctx.userId})`)!);
   }
   const base = db.select(listSelect).from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId));
   const [rows, [total]] = await Promise.all([
@@ -372,7 +372,7 @@ export async function getMyWork(db: Db, ctx: AuthContext, timeZone = "America/Ne
   await authorize(db, ctx, "projects.read", "ANY");
   const mine = or(
     eq(tasks.ownerUserId, ctx.userId),
-    sql`exists (select 1 from task_collaborators c where c.task_id = ${tasks.id} and c.user_id = ${ctx.userId})`,
+    sql`exists (select 1 from task_collaborators c where c.task_id = ${qualified(tasks.id)} and c.user_id = ${ctx.userId})`,
   )!;
   const rows = await db
     .select(listSelect)

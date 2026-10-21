@@ -23,7 +23,7 @@ const csp = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@projectos/ui", "@projectos/shared", "@projectos/core", "@projectos/auth", "@projectos/db"],
+  transpilePackages: ["@projectos/ui", "@projectos/shared", "@projectos/core", "@projectos/auth", "@projectos/db", "@projectos/credentialing"],
   serverExternalPackages: ["postgres"],
   typedRoutes: false,
   eslint: { ignoreDuringBuilds: true }, // lint runs from the repo root (pnpm lint)
