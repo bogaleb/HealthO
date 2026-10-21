@@ -28,8 +28,16 @@ const listQuery = z.object({
 export async function listReference(db: Db, ctx: AuthContext) {
   const [spec, svc, st] = await Promise.all([
     db.select().from(specialties).where(eq(specialties.organizationId, ctx.organizationId)).orderBy(asc(specialties.name)),
-    db.select().from(services).where(and(eq(services.organizationId, ctx.organizationId), eq(services.active, true))).orderBy(asc(services.name)),
-    db.select({ id: sites.id, code: sites.code, name: sites.name, state: sites.state }).from(sites).where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.active, true))).orderBy(asc(sites.code)),
+    db
+      .select()
+      .from(services)
+      .where(and(eq(services.organizationId, ctx.organizationId), eq(services.active, true)))
+      .orderBy(asc(services.name)),
+    db
+      .select({ id: sites.id, code: sites.code, name: sites.name, state: sites.state })
+      .from(sites)
+      .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.active, true)))
+      .orderBy(asc(sites.code)),
   ]);
   return { specialties: spec, services: svc, sites: st };
 }
@@ -43,13 +51,20 @@ export async function listPractitioners(db: Db, ctx: AuthContext, query: unknown
   if (q.includeInactive !== "true") where.push(eq(practitioners.active, true));
   if (q.profession) where.push(eq(practitioners.profession, q.profession));
   if (q.siteId) where.push(sql`exists (select 1 from practitioner_sites ps where ps.practitioner_id = ${qualified(practitioners.id)} and ps.site_id = ${q.siteId})`);
-  if (q.state) where.push(sql`exists (select 1 from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.jurisdiction = ${q.state} and a.authority_type <> 'COMPACT_MEMBERSHIP_CLAIM')`);
+  if (q.state)
+    where.push(
+      sql`exists (select 1 from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.jurisdiction = ${q.state} and a.authority_type <> 'COMPACT_MEMBERSHIP_CLAIM')`,
+    );
   if (q.q) where.push(ilike(practitioners.displayName, `%${q.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`));
   const rows = await db
     .select({
       p: practitioners,
-      siteCodes: sql<string[]>`coalesce((select array_agg(s.code order by s.code) from practitioner_sites ps join sites s on s.id = ps.site_id where ps.practitioner_id = ${qualified(practitioners.id)}), '{}')`,
-      verifiedStates: sql<string[]>`coalesce((select array_agg(distinct a.jurisdiction order by a.jurisdiction) from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.status = 'VERIFIED' and a.authority_type <> 'COMPACT_MEMBERSHIP_CLAIM' and (a.expires_on is null or a.expires_on >= ${today})), '{}')`,
+      siteCodes: sql<
+        string[]
+      >`coalesce((select array_agg(s.code order by s.code) from practitioner_sites ps join sites s on s.id = ps.site_id where ps.practitioner_id = ${qualified(practitioners.id)}), '{}')`,
+      verifiedStates: sql<
+        string[]
+      >`coalesce((select array_agg(distinct a.jurisdiction order by a.jurisdiction) from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.status = 'VERIFIED' and a.authority_type <> 'COMPACT_MEMBERSHIP_CLAIM' and (a.expires_on is null or a.expires_on >= ${today})), '{}')`,
       expiringSoon: sql<number>`(select count(*)::int from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.status = 'VERIFIED' and a.expires_on between ${today} and ${soon})`,
       expired: sql<number>`(select count(*)::int from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and (a.status = 'EXPIRED' or (a.status = 'VERIFIED' and a.expires_on < ${today})))`,
       pendingReview: sql<number>`(select count(*)::int from professional_authorities a where a.practitioner_id = ${qualified(practitioners.id)} and a.status = 'SUBMITTED')`,
@@ -67,8 +82,15 @@ export async function getPractitionerDetail(db: Db, ctx: AuthContext, id: string
   const [specRows, svcRows, auths, enrolls] = await Promise.all([
     db.select({ id: practitionerSpecialties.specialtyId }).from(practitionerSpecialties).where(eq(practitionerSpecialties.practitionerId, id)),
     db.select({ id: practitionerServices.serviceId }).from(practitionerServices).where(eq(practitionerServices.practitionerId, id)),
-    db.select().from(professionalAuthorities).where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.practitionerId, id))).orderBy(asc(professionalAuthorities.jurisdiction)),
-    db.select().from(providerEnrollments).where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.practitionerId, id))),
+    db
+      .select()
+      .from(professionalAuthorities)
+      .where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.practitionerId, id)))
+      .orderBy(asc(professionalAuthorities.jurisdiction)),
+    db
+      .select()
+      .from(providerEnrollments)
+      .where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.practitionerId, id))),
   ]);
   return {
     practitioner,
@@ -87,7 +109,10 @@ export async function getPractitionerDetail(db: Db, ctx: AuthContext, id: string
 async function assertRefs(tx: Tx | Db, ctx: AuthContext, ids: { siteIds?: string[]; specialtyIds?: string[]; serviceIds?: string[] }) {
   const check = async (table: typeof sites | typeof specialties | typeof services, list: string[] | undefined, label: string) => {
     if (!list?.length) return;
-    const found = await tx.select({ id: table.id }).from(table).where(and(eq(table.organizationId, ctx.organizationId), inArray(table.id, list)));
+    const found = await tx
+      .select({ id: table.id })
+      .from(table)
+      .where(and(eq(table.organizationId, ctx.organizationId), inArray(table.id, list)));
     if (found.length !== new Set(list).size) throw new AppError("VALIDATION_FAILED", `Unknown ${label}.`, [{ code: "UNKNOWN_REF", field: label }]);
   };
   await check(sites, ids.siteIds, "siteIds");
@@ -103,7 +128,8 @@ async function replaceLinks(tx: Tx, ctx: AuthContext, practitionerId: string, d:
   }
   if (d.specialtyIds) {
     await tx.delete(practitionerSpecialties).where(eq(practitionerSpecialties.practitionerId, practitionerId));
-    if (d.specialtyIds.length) await tx.insert(practitionerSpecialties).values([...new Set(d.specialtyIds)].map((specialtyId) => ({ organizationId: o, practitionerId, specialtyId })));
+    if (d.specialtyIds.length)
+      await tx.insert(practitionerSpecialties).values([...new Set(d.specialtyIds)].map((specialtyId) => ({ organizationId: o, practitionerId, specialtyId })));
   }
   if (d.serviceIds) {
     await tx.delete(practitionerServices).where(eq(practitionerServices.practitionerId, practitionerId));
@@ -120,7 +146,10 @@ export async function createPractitioner(db: Db, ctx: AuthContext, input: unknow
   await assertRefs(db, ctx, d);
   return db.transaction(async (tx) => {
     const { siteIds, specialtyIds, serviceIds, ...values } = d;
-    const [p] = await tx.insert(practitioners).values({ ...values, organizationId: ctx.organizationId, createdBy: ctx.userId }).returning();
+    const [p] = await tx
+      .insert(practitioners)
+      .values({ ...values, organizationId: ctx.organizationId, createdBy: ctx.userId })
+      .returning();
     await replaceLinks(tx, ctx, p!.id, { siteIds, specialtyIds, serviceIds });
     await audit(tx, ctx, { action: "practitioner.create", resourceType: "practitioner", resourceId: p!.id, metadata: { profession: p!.profession } });
     return p!;

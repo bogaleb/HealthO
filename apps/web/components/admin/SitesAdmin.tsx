@@ -19,11 +19,29 @@ interface Site {
   active: boolean;
   version: number;
 }
-const US_TZ = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "America/Puerto_Rico", "Pacific/Guam"];
+const US_TZ = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Puerto_Rico",
+  "Pacific/Guam",
+];
 
 function SiteDialog({ site, open, onClose }: { site: Site | null; open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const init = { code: site?.code ?? "", name: site?.name ?? "", state: site?.state ?? "VA", timezone: site?.timezone ?? "America/New_York", addressLine1: site?.addressLine1 ?? "", city: site?.city ?? "", postalCode: site?.postalCode ?? "" };
+  const init = {
+    code: site?.code ?? "",
+    name: site?.name ?? "",
+    state: site?.state ?? "VA",
+    timezone: site?.timezone ?? "America/New_York",
+    addressLine1: site?.addressLine1 ?? "",
+    city: site?.city ?? "",
+    postalCode: site?.postalCode ?? "",
+  };
   const [f, setF] = useState(init);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +63,8 @@ function SiteDialog({ site, open, onClose }: { site: Site | null; open: boolean;
         </>
       }
     >
-      <form method="post"
+      <form
+        method="post"
         id="site-form"
         className="space-y-3"
         onSubmit={async (e) => {
@@ -135,13 +154,27 @@ export function SitesAdmin({ sites, canCreate, manageable }: { sites: Site[]; ca
         <table className="w-full text-left text-[13.5px]">
           <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
             <tr>
-              <th scope="col" className="px-3 py-2">Code</th>
-              <th scope="col" className="px-3 py-2">Name</th>
-              <th scope="col" className="px-3 py-2">State</th>
-              <th scope="col" className="px-3 py-2">Time zone</th>
-              <th scope="col" className="px-3 py-2">City</th>
-              <th scope="col" className="px-3 py-2">Status</th>
-              <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
+              <th scope="col" className="px-3 py-2">
+                Code
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Name
+              </th>
+              <th scope="col" className="px-3 py-2">
+                State
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Time zone
+              </th>
+              <th scope="col" className="px-3 py-2">
+                City
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Status
+              </th>
+              <th scope="col" className="px-3 py-2">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -188,7 +221,17 @@ export function SitesAdmin({ sites, canCreate, manageable }: { sites: Site[]; ca
   );
 }
 
-export function DepartmentsAdmin({ departments, teams, sites, canManage }: { departments: { id: string; code: string; name: string; siteId: string | null }[]; teams: { id: string; name: string; departmentId: string }[]; sites: { id: string; code: string }[]; canManage: boolean }) {
+export function DepartmentsAdmin({
+  departments,
+  teams,
+  sites,
+  canManage,
+}: {
+  departments: { id: string; code: string; name: string; siteId: string | null }[];
+  teams: { id: string; name: string; departmentId: string }[];
+  sites: { id: string; code: string }[];
+  canManage: boolean;
+}) {
   const router = useRouter();
   const [d, setD] = useState({ code: "", name: "", siteId: "" });
   const [t, setT] = useState({ name: "", departmentId: departments[0]?.id ?? "" });
@@ -222,7 +265,8 @@ export function DepartmentsAdmin({ departments, teams, sites, canManage }: { dep
       {canManage && (
         <div className="space-y-3 border-t border-slate-200 p-4">
           {err && <ErrorState title="Not saved" message={err} />}
-          <form method="post"
+          <form
+            method="post"
             className="flex flex-wrap items-end gap-2"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -257,7 +301,8 @@ export function DepartmentsAdmin({ departments, teams, sites, canManage }: { dep
             </Button>
           </form>
           {departments.length > 0 && (
-            <form method="post"
+            <form
+              method="post"
               className="flex flex-wrap items-end gap-2"
               onSubmit={async (e) => {
                 e.preventDefault();

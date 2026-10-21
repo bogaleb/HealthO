@@ -31,7 +31,14 @@ export function NewProviderButton({ reference }: { reference: Ref }) {
       )}
       fields={[
         { name: "displayName", label: "Display name", type: "text", required: true, placeholder: "Practitioner X (SYNTHETIC)" },
-        { name: "profession", label: "Profession", type: "select", required: true, options: PROFESSIONS.map((p) => ({ value: p, label: PROFESSION_LABEL[p] })), defaultValue: "PHYSICIAN" },
+        {
+          name: "profession",
+          label: "Profession",
+          type: "select",
+          required: true,
+          options: PROFESSIONS.map((p) => ({ value: p, label: PROFESSION_LABEL[p] })),
+          defaultValue: "PHYSICIAN",
+        },
         { name: "physicalState", label: "Usually works physically from", type: "select", options: states, allowEmpty: "Unknown" },
         { name: "npi", label: "NPI (synthetic, optional)", type: "text", maxLength: 10 },
         { name: "telehealthCapable", label: "Telehealth capable", type: "checkbox" },
@@ -47,7 +54,19 @@ export function NewProviderButton({ reference }: { reference: Ref }) {
   );
 }
 
-export function EditProviderButton({ p, reference, siteIds, specialtyIds, serviceIds }: { p: { id: string; displayName: string; physicalState: string | null; telehealthCapable: boolean; active: boolean; version: number }; reference: Ref; siteIds: string[]; specialtyIds: string[]; serviceIds: string[] }) {
+export function EditProviderButton({
+  p,
+  reference,
+  siteIds,
+  specialtyIds,
+  serviceIds,
+}: {
+  p: { id: string; displayName: string; physicalState: string | null; telehealthCapable: boolean; active: boolean; version: number };
+  reference: Ref;
+  siteIds: string[];
+  specialtyIds: string[];
+  serviceIds: string[];
+}) {
   return (
     <FormDialog
       title="Edit provider"
@@ -82,8 +101,23 @@ export function AddAuthorityButton({ practitionerId, profession }: { practitione
         </Button>
       )}
       fields={[
-        { name: "authorityType", label: "Type", type: "select", required: true, options: AUTHORITY_TYPES.map((t) => ({ value: t, label: AUTHORITY_TYPE_LABEL[t] })), defaultValue: "STATE_LICENSE" },
-        { name: "profession", label: "For profession", type: "select", required: true, options: PROFESSIONS.map((p) => ({ value: p, label: PROFESSION_LABEL[p] })), defaultValue: profession, hint: "Must match the provider's profession." },
+        {
+          name: "authorityType",
+          label: "Type",
+          type: "select",
+          required: true,
+          options: AUTHORITY_TYPES.map((t) => ({ value: t, label: AUTHORITY_TYPE_LABEL[t] })),
+          defaultValue: "STATE_LICENSE",
+        },
+        {
+          name: "profession",
+          label: "For profession",
+          type: "select",
+          required: true,
+          options: PROFESSIONS.map((p) => ({ value: p, label: PROFESSION_LABEL[p] })),
+          defaultValue: profession,
+          hint: "Must match the provider's profession.",
+        },
         { name: "jurisdiction", label: "Issuing jurisdiction", type: "select", required: true, options: states, defaultValue: "VA" },
         { name: "homeState", label: "Home state (multistate/APIT)", type: "select", options: states, allowEmpty: "Not applicable" },
         { name: "licenseNumberLast4", label: "License # — last 4 only", type: "text", maxLength: 4, hint: "Full numbers are never stored." },
@@ -95,7 +129,14 @@ export function AddAuthorityButton({ practitionerId, profession }: { practitione
       onSubmit={(v) =>
         apiFetch(`/api/v1/practitioners/${practitionerId}/authorities`, {
           method: "POST",
-          body: { ...v, homeState: orNull(v.homeState), licenseNumberLast4: orNull(v.licenseNumberLast4), issuingAuthority: orNull(v.issuingAuthority), expiresOn: orNull(v.expiresOn), restrictions: orNull(v.restrictions) },
+          body: {
+            ...v,
+            homeState: orNull(v.homeState),
+            licenseNumberLast4: orNull(v.licenseNumberLast4),
+            issuingAuthority: orNull(v.issuingAuthority),
+            expiresOn: orNull(v.expiresOn),
+            restrictions: orNull(v.restrictions),
+          },
         })
       }
     />
@@ -146,7 +187,12 @@ export function AuthorityActions({ a, canEdit, canApprove }: { a: { id: string; 
             { name: "nextReviewOn", label: "Next review", type: "date" },
             { name: "note", label: "Note", type: "textarea" },
           ]}
-          onSubmit={(v) => apiFetch(`/api/v1/authorities/${a.id}/approve`, { method: "POST", body: { ...v, sourceUrl: orNull(v.sourceUrl), nextReviewOn: orNull(v.nextReviewOn), note: orNull(v.note), version: a.version } })}
+          onSubmit={(v) =>
+            apiFetch(`/api/v1/authorities/${a.id}/approve`, {
+              method: "POST",
+              body: { ...v, sourceUrl: orNull(v.sourceUrl), nextReviewOn: orNull(v.nextReviewOn), note: orNull(v.note), version: a.version },
+            })
+          }
         />
       )}
       {canApprove && a.status === "SUBMITTED" && (
@@ -175,21 +221,38 @@ export function AuthorityActions({ a, canEdit, canApprove }: { a: { id: string; 
             </Button>
           )}
           fields={[
-            { name: "status", label: "New status", type: "select", required: true, options: [{ value: "SUSPENDED", label: "Suspended" }, { value: "REVOKED", label: "Revoked" }], defaultValue: "SUSPENDED" },
+            {
+              name: "status",
+              label: "New status",
+              type: "select",
+              required: true,
+              options: [
+                { value: "SUSPENDED", label: "Suspended" },
+                { value: "REVOKED", label: "Revoked" },
+              ],
+              defaultValue: "SUSPENDED",
+            },
             { name: "note", label: "Reason / source", type: "textarea", required: true },
           ]}
           onSubmit={(v) => apiFetch(`/api/v1/authorities/${a.id}/status`, { method: "POST", body: { ...v, version: a.version } })}
         />
       )}
       <HistoryButton authorityId={a.id} />
-      {err && <p role="alert" className="w-full text-right text-xs text-red-700">{err}</p>}
+      {err && (
+        <p role="alert" className="w-full text-right text-xs text-red-700">
+          {err}
+        </p>
+      )}
     </div>
   );
 }
 
 function HistoryButton({ authorityId }: { authorityId: string }) {
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<{ id: string; action: string; fromStatus: string | null; toStatus: string; actorName: string | null; sourceName: string | null; note: string | null; createdAt: string }[] | null>(null);
+  const [rows, setRows] = useState<
+    | { id: string; action: string; fromStatus: string | null; toStatus: string; actorName: string | null; sourceName: string | null; note: string | null; createdAt: string }[]
+    | null
+  >(null);
   return (
     <>
       <Button
@@ -242,7 +305,13 @@ export function AddEnrollmentButton({ practitionerId, sites, plans }: { practiti
       fields={[
         { name: "payerPlanId", label: "Payer plan", type: "select", required: true, options: plans.map((p) => ({ value: p.id, label: p.label })), defaultValue: plans[0]?.id },
         { name: "siteId", label: "Site", type: "select", required: true, options: sites.map((s) => ({ value: s.id, label: s.code })), defaultValue: sites[0]?.id },
-        { name: "status", label: "Status", type: "select", options: ["NOT_STARTED", "SUBMITTED", "AWAITING_INFO"].map((s) => ({ value: s, label: humanize(s) })), defaultValue: "NOT_STARTED" },
+        {
+          name: "status",
+          label: "Status",
+          type: "select",
+          options: ["NOT_STARTED", "SUBMITTED", "AWAITING_INFO"].map((s) => ({ value: s, label: humanize(s) })),
+          defaultValue: "NOT_STARTED",
+        },
         { name: "submittedOn", label: "Submitted on", type: "date" },
       ]}
       onSubmit={(v) => apiFetch("/api/v1/enrollments", { method: "POST", body: { ...v, practitionerId, submittedOn: orNull(v.submittedOn) } })}
@@ -250,7 +319,24 @@ export function AddEnrollmentButton({ practitionerId, sites, plans }: { practiti
   );
 }
 
-export function EnrollmentActions({ e, canEdit, canApprove }: { e: { id: string; status: string; version: number; submittedOn: string | null; approvedOn: string | null; effectiveOn: string | null; terminatedOn: string | null; verifiedAt: string | null }; canEdit: boolean; canApprove: boolean }) {
+export function EnrollmentActions({
+  e,
+  canEdit,
+  canApprove,
+}: {
+  e: {
+    id: string;
+    status: string;
+    version: number;
+    submittedOn: string | null;
+    approvedOn: string | null;
+    effectiveOn: string | null;
+    terminatedOn: string | null;
+    verifiedAt: string | null;
+  };
+  canEdit: boolean;
+  canApprove: boolean;
+}) {
   return (
     <div className="flex justify-end gap-1">
       {canEdit && (
@@ -263,7 +349,14 @@ export function EnrollmentActions({ e, canEdit, canApprove }: { e: { id: string;
             </Button>
           )}
           fields={[
-            { name: "status", label: "Status", type: "select", required: true, options: ENROLLMENT_STATUSES.map((s) => ({ value: s, label: humanize(s) })), defaultValue: e.status },
+            {
+              name: "status",
+              label: "Status",
+              type: "select",
+              required: true,
+              options: ENROLLMENT_STATUSES.map((s) => ({ value: s, label: humanize(s) })),
+              defaultValue: e.status,
+            },
             { name: "submittedOn", label: "Submitted on", type: "date", defaultValue: e.submittedOn ?? "" },
             { name: "approvedOn", label: "Approval confirmed on", type: "date", defaultValue: e.approvedOn ?? "" },
             { name: "effectiveOn", label: "Participation effective (retro) date", type: "date", defaultValue: e.effectiveOn ?? "" },
@@ -273,7 +366,15 @@ export function EnrollmentActions({ e, canEdit, canApprove }: { e: { id: string;
           onSubmit={(v) =>
             apiFetch(`/api/v1/enrollments/${e.id}`, {
               method: "PATCH",
-              body: { status: v.status, submittedOn: orNull(v.submittedOn), approvedOn: orNull(v.approvedOn), effectiveOn: orNull(v.effectiveOn), terminatedOn: orNull(v.terminatedOn), note: orNull(v.note), version: e.version },
+              body: {
+                status: v.status,
+                submittedOn: orNull(v.submittedOn),
+                approvedOn: orNull(v.approvedOn),
+                effectiveOn: orNull(v.effectiveOn),
+                terminatedOn: orNull(v.terminatedOn),
+                note: orNull(v.note),
+                version: e.version,
+              },
             })
           }
         />
@@ -296,7 +397,15 @@ export function EnrollmentActions({ e, canEdit, canApprove }: { e: { id: string;
   );
 }
 
-export function NewCaseButton({ practitioners, members, defaultPractitionerId }: { practitioners: { id: string; displayName: string }[]; members: { userId: string; displayName: string }[]; defaultPractitionerId?: string }) {
+export function NewCaseButton({
+  practitioners,
+  members,
+  defaultPractitionerId,
+}: {
+  practitioners: { id: string; displayName: string }[];
+  members: { userId: string; displayName: string }[];
+  defaultPractitionerId?: string;
+}) {
   return (
     <FormDialog
       title="New credentialing case"
@@ -307,14 +416,26 @@ export function NewCaseButton({ practitioners, members, defaultPractitionerId }:
         </Button>
       )}
       fields={[
-        { name: "practitionerId", label: "Provider", type: "select", required: true, options: practitioners.map((p) => ({ value: p.id, label: p.displayName })), defaultValue: defaultPractitionerId ?? practitioners[0]?.id },
+        {
+          name: "practitionerId",
+          label: "Provider",
+          type: "select",
+          required: true,
+          options: practitioners.map((p) => ({ value: p.id, label: p.displayName })),
+          defaultValue: defaultPractitionerId ?? practitioners[0]?.id,
+        },
         { name: "caseType", label: "Type", type: "select", required: true, options: CASE_TYPES.map((c) => ({ value: c, label: humanize(c) })), defaultValue: "LICENSE_NEW_STATE" },
         { name: "title", label: "Title", type: "text", required: true },
         { name: "ownerUserId", label: "Owner", type: "select", options: members.map((m) => ({ value: m.userId, label: m.displayName })), allowEmpty: "Unassigned" },
         { name: "dueDate", label: "Due", type: "date" },
         { name: "nextAction", label: "Next action", type: "text" },
       ]}
-      onSubmit={(v) => apiFetch("/api/v1/credentialing/cases", { method: "POST", body: { ...v, ownerUserId: orNull(v.ownerUserId), dueDate: orNull(v.dueDate), nextAction: orNull(v.nextAction) } })}
+      onSubmit={(v) =>
+        apiFetch("/api/v1/credentialing/cases", {
+          method: "POST",
+          body: { ...v, ownerUserId: orNull(v.ownerUserId), dueDate: orNull(v.dueDate), nextAction: orNull(v.nextAction) },
+        })
+      }
     />
   );
 }

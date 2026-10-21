@@ -4,7 +4,20 @@ import { usePathname } from "next/navigation";
 import { BadgeCheck, ClipboardList, FolderKanban, Grid3X3, Home, KeyRound, Landmark, MapPin, Scale, ScrollText, Stethoscope, Users } from "lucide-react";
 import { cn } from "@projectos/ui";
 
-const ICONS = { home: Home, work: ClipboardList, projects: FolderKanban, users: Users, roles: KeyRound, sites: MapPin, audit: ScrollText, providers: Stethoscope, cases: BadgeCheck, readiness: Grid3X3, payers: Landmark, rules: Scale };
+const ICONS = {
+  home: Home,
+  work: ClipboardList,
+  projects: FolderKanban,
+  users: Users,
+  roles: KeyRound,
+  sites: MapPin,
+  audit: ScrollText,
+  providers: Stethoscope,
+  cases: BadgeCheck,
+  readiness: Grid3X3,
+  payers: Landmark,
+  rules: Scale,
+};
 export interface NavItem {
   href: string;
   label: string;
@@ -31,7 +44,10 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
           // navigations (aborted prefetch → stalled transition). Fetch on click instead.
           prefetch={false}
           aria-current={active ? "page" : undefined}
-          className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] transition-colors", active ? "bg-white/10 font-medium text-white" : "text-slate-300 hover:bg-white/5 hover:text-white")}
+          className={cn(
+            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] transition-colors",
+            active ? "bg-white/10 font-medium text-white" : "text-slate-300 hover:bg-white/5 hover:text-white",
+          )}
         >
           <Icon className="h-4 w-4 shrink-0" aria-hidden />
           {n.label}

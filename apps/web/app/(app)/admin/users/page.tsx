@@ -18,10 +18,19 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     status: sp.status === "ACTIVE" || sp.status === "SUSPENDED" ? sp.status : undefined,
   };
   const db = getDb();
-  const [members, invites, roles, sites, departments] = await Promise.all([listMembers(db, ctx, filters), listInvites(db, ctx), listRoles(db, ctx), listSites(db, ctx), listDepartments(db, ctx)]);
+  const [members, invites, roles, sites, departments] = await Promise.all([
+    listMembers(db, ctx, filters),
+    listInvites(db, ctx),
+    listRoles(db, ctx),
+    listSites(db, ctx),
+    listDepartments(db, ctx),
+  ]);
   return (
     <div>
-      <PageHeader title="Staff & Permissions" description="Memberships, role grants and their site/department scope. Every change is enforced on the server and written to the audit log." />
+      <PageHeader
+        title="Staff & Permissions"
+        description="Memberships, role grants and their site/department scope. Every change is enforced on the server and written to the audit log."
+      />
       <UsersAdmin
         members={members}
         invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}

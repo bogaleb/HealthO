@@ -5,7 +5,21 @@ import { hashPassword } from "better-auth/crypto";
 import { loadAuthContext } from "@projectos/auth";
 import { createMemberDirect, findOrgBySlug } from "@projectos/core";
 import { appMode, addDays, isSyntheticMode, todayIn } from "@projectos/shared";
-import { approveRule, createAuthority, createCase, createEnrollment, createPayer, createPlan, createPractitioner, createRuleDraft, changeAuthorityStatus, submitAuthority, updateEnrollment, verifyAuthority, verifyEnrollment } from "./index";
+import {
+  approveRule,
+  createAuthority,
+  createCase,
+  createEnrollment,
+  createPayer,
+  createPlan,
+  createPractitioner,
+  createRuleDraft,
+  changeAuthorityStatus,
+  submitAuthority,
+  updateEnrollment,
+  verifyAuthority,
+  verifyEnrollment,
+} from "./index";
 import { runCredentialDeadlines } from "./deadlines";
 
 /**
@@ -26,19 +40,61 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
   const existing = await db.select({ id: practitioners.id }).from(practitioners).where(eq(practitioners.organizationId, o)).limit(1);
   if (existing.length) return { skipped: true as const };
 
-  const roleId = async (key: string) => (await db.select({ id: roles.id }).from(roles).where(and(eq(roles.organizationId, o), eq(roles.key, key))))[0]!.id;
-  const dept = async (code: string) => (await db.select({ id: departments.id }).from(departments).where(and(eq(departments.organizationId, o), eq(departments.code, code))))[0]?.id ?? null;
+  const roleId = async (key: string) =>
+    (
+      await db
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.organizationId, o), eq(roles.key, key)))
+    )[0]!.id;
+  const dept = async (code: string) =>
+    (
+      await db
+        .select({ id: departments.id })
+        .from(departments)
+        .where(and(eq(departments.organizationId, o), eq(departments.code, code)))
+    )[0]?.id ?? null;
   const userId = async (email: string) => (await db.select({ id: users.id }).from(users).where(eq(users.email, email)))[0]?.id;
   const passwordHash = await hashPassword(password);
 
   // Credentialing approver + compliance officer (separate people → dual control is real)
-  const approverId = (await userId(CRED_USERS.approver.email)) ?? (await createMemberDirect(db, { organizationId: o, email: CRED_USERS.approver.email, displayName: CRED_USERS.approver.name, passwordHash, professionalRole: "Credentialing Manager", departmentId: await dept("CRED"), grants: [{ roleId: await roleId("credentialing_approver") }] })).userId;
-  const complianceId = (await userId(CRED_USERS.compliance.email)) ?? (await createMemberDirect(db, { organizationId: o, email: CRED_USERS.compliance.email, displayName: CRED_USERS.compliance.name, passwordHash, professionalRole: "Compliance Officer", departmentId: await dept("ADMIN"), grants: [{ roleId: await roleId("compliance_officer") }] })).userId;
+  const approverId =
+    (await userId(CRED_USERS.approver.email)) ??
+    (
+      await createMemberDirect(db, {
+        organizationId: o,
+        email: CRED_USERS.approver.email,
+        displayName: CRED_USERS.approver.name,
+        passwordHash,
+        professionalRole: "Credentialing Manager",
+        departmentId: await dept("CRED"),
+        grants: [{ roleId: await roleId("credentialing_approver") }],
+      })
+    ).userId;
+  const complianceId =
+    (await userId(CRED_USERS.compliance.email)) ??
+    (
+      await createMemberDirect(db, {
+        organizationId: o,
+        email: CRED_USERS.compliance.email,
+        displayName: CRED_USERS.compliance.name,
+        passwordHash,
+        professionalRole: "Compliance Officer",
+        departmentId: await dept("ADMIN"),
+        grants: [{ roleId: await roleId("compliance_officer") }],
+      })
+    ).userId;
   // Casey (credentialing specialist) works across all sites for credentialing.
   const caseyId = (await userId("casey.lin@riverbend.example"))!;
-  const [caseyM] = await db.select().from(memberships).where(and(eq(memberships.organizationId, o), eq(memberships.userId, caseyId)));
+  const [caseyM] = await db
+    .select()
+    .from(memberships)
+    .where(and(eq(memberships.organizationId, o), eq(memberships.userId, caseyId)));
   const csRole = await roleId("credentialing_specialist");
-  const hasOrgWide = await db.select().from(roleGrants).where(and(eq(roleGrants.membershipId, caseyM!.id), eq(roleGrants.roleId, csRole)));
+  const hasOrgWide = await db
+    .select()
+    .from(roleGrants)
+    .where(and(eq(roleGrants.membershipId, caseyM!.id), eq(roleGrants.roleId, csRole)));
   if (!hasOrgWide.some((g) => !g.siteId && !g.departmentId)) await db.insert(roleGrants).values({ organizationId: o, membershipId: caseyM!.id, roleId: csRole });
 
   const casey = (await loadAuthContext(db, caseyId, "seed"))!;
@@ -70,7 +126,17 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
 
   // ---- Approved DEMO rules (authored by Casey, approved by Dana → dual control satisfied) ----
   const rule = async (jurisdiction: string, profession: string, modality: string, basis: string[] = ["STATE_LICENSE"], homes: string[] = []) => {
-    const d = await createRuleDraft(db, casey, { jurisdiction, profession, modality, authorizationBasis: basis, acceptedHomeStates: homes, effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 180), sourceSummary: DEMO, isDemo: true });
+    const d = await createRuleDraft(db, casey, {
+      jurisdiction,
+      profession,
+      modality,
+      authorizationBasis: basis,
+      acceptedHomeStates: homes,
+      effectiveFrom: "2026-01-01",
+      nextReviewOn: addDays(today, 180),
+      sourceSummary: DEMO,
+      isDemo: true,
+    });
     return approveRule(db, compliance, d.id, { reason: "Approved as DEMO fixture only — not a legal determination." });
   };
   for (const m of ["IN_PERSON", "VIDEO"]) {
@@ -86,11 +152,29 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
   await rule("MD", "APRN", "VIDEO");
   await rule("MD", "PSYCHOLOGIST", "VIDEO", ["STATE_LICENSE", "APIT"], ["VA"]);
   // DC intentionally has NO approved rules (fixture C). One draft is waiting for compliance review:
-  await createRuleDraft(db, casey, { jurisdiction: "DC", profession: "LCSW", modality: "VIDEO", authorizationBasis: ["STATE_LICENSE"], effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 180), sourceSummary: DEMO, isDemo: true });
+  await createRuleDraft(db, casey, {
+    jurisdiction: "DC",
+    profession: "LCSW",
+    modality: "VIDEO",
+    authorizationBasis: ["STATE_LICENSE"],
+    effectiveFrom: "2026-01-01",
+    nextReviewOn: addDays(today, 180),
+    sourceSummary: DEMO,
+    isDemo: true,
+  });
 
   // ---- Practitioners (fictional) ----
   const prac = async (displayName: string, profession: string, siteCodes: string[], physicalState: string, spec: string[], svc: string[]) =>
-    createPractitioner(db, casey, { displayName, profession, physicalState, telehealthCapable: true, siteIds: siteCodes.map(site), specialtyIds: spec, serviceIds: svc, languages: ["English"] });
+    createPractitioner(db, casey, {
+      displayName,
+      profession,
+      physicalState,
+      telehealthCapable: true,
+      siteIds: siteCodes.map(site),
+      specialtyIds: spec,
+      serviceIds: svc,
+      languages: ["English"],
+    });
   const verified = async (practitionerId: string, a: Record<string, unknown>) => {
     const created = await createAuthority(db, casey, practitionerId, { effectiveOn: "2025-01-01", ...a });
     const sub = await submitAuthority(db, casey, created.id, { version: created.version });
@@ -102,19 +186,45 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
   };
 
   const A = await prac("Practitioner A — Dr. Alder (SYNTHETIC)", "PHYSICIAN", ["ALX"], "VA", [fm!.id], [pc!.id]);
-  await verified(A.id, { authorityType: "STATE_LICENSE", profession: "PHYSICIAN", jurisdiction: "VA", licenseNumberLast4: "0A01", issuingAuthority: "Demo VA Board (synthetic)", expiresOn: "2027-03-31" });
-  await createAuthority(db, casey, A.id, { authorityType: "COMPACT_MEMBERSHIP_CLAIM", profession: "PHYSICIAN", jurisdiction: "MD", effectiveOn: "2025-06-01", restrictions: "Provider states IMLC participation. Informational only — no MD license issued." });
+  await verified(A.id, {
+    authorityType: "STATE_LICENSE",
+    profession: "PHYSICIAN",
+    jurisdiction: "VA",
+    licenseNumberLast4: "0A01",
+    issuingAuthority: "Demo VA Board (synthetic)",
+    expiresOn: "2027-03-31",
+  });
+  await createAuthority(db, casey, A.id, {
+    authorityType: "COMPACT_MEMBERSHIP_CLAIM",
+    profession: "PHYSICIAN",
+    jurisdiction: "MD",
+    effectiveOn: "2025-06-01",
+    restrictions: "Provider states IMLC participation. Informational only — no MD license issued.",
+  });
 
   const B = await prac("Practitioner B — Nurse Birch (SYNTHETIC)", "RN", ["SSP", "ALX"], "VA", [np!.id], [nurseVisit!.id]);
   await verified(B.id, { authorityType: "MULTISTATE_LICENSE", profession: "RN", jurisdiction: "VA", homeState: "VA", licenseNumberLast4: "0B01", expiresOn: "2027-06-30" });
 
   const B2 = await prac("Practitioner B2 — NP Cedar (SYNTHETIC)", "APRN", ["SSP"], "VA", [fm!.id], [pc!.id]);
   await verified(B2.id, { authorityType: "STATE_LICENSE", profession: "APRN", jurisdiction: "VA", licenseNumberLast4: "0B02", expiresOn: "2027-01-31" });
-  await createAuthority(db, casey, B2.id, { authorityType: "COMPACT_MEMBERSHIP_CLAIM", profession: "APRN", jurisdiction: "MD", effectiveOn: "2025-01-01", restrictions: "Holds RN multistate privilege; does NOT extend to APRN practice." });
+  await createAuthority(db, casey, B2.id, {
+    authorityType: "COMPACT_MEMBERSHIP_CLAIM",
+    profession: "APRN",
+    jurisdiction: "MD",
+    effectiveOn: "2025-01-01",
+    restrictions: "Holds RN multistate privilege; does NOT extend to APRN practice.",
+  });
 
   const C = await prac("Practitioner C — Dr. Dogwood, PhD (SYNTHETIC)", "PSYCHOLOGIST", ["NEDC"], "VA", [bh!.id], [therapy!.id, testing!.id]);
   await verified(C.id, { authorityType: "STATE_LICENSE", profession: "PSYCHOLOGIST", jurisdiction: "VA", licenseNumberLast4: "0C01", expiresOn: "2027-08-31" });
-  const apit = await submitted(C.id, { authorityType: "APIT", profession: "PSYCHOLOGIST", jurisdiction: "VA", homeState: "VA", licenseNumberLast4: "0C02", expiresOn: "2027-08-31" });
+  const apit = await submitted(C.id, {
+    authorityType: "APIT",
+    profession: "PSYCHOLOGIST",
+    jurisdiction: "VA",
+    homeState: "VA",
+    licenseNumberLast4: "0C02",
+    expiresOn: "2027-08-31",
+  });
 
   const D = await prac("Practitioner D — Elm, LCSW (SYNTHETIC)", "LCSW", ["ALX", "SSP"], "VA", [bh!.id], [therapy!.id]);
   await verified(D.id, { authorityType: "STATE_LICENSE", profession: "LCSW", jurisdiction: "VA", licenseNumberLast4: "0D01", expiresOn: "2028-02-29" });
@@ -135,7 +245,13 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
 
   const enrollApproved = async (practitionerId: string, planId: string, siteCode: string, verify: boolean) => {
     const e = (await createEnrollment(db, casey, { practitionerId, payerPlanId: planId, siteId: site(siteCode), status: "SUBMITTED", submittedOn: addDays(today, -60) }))!;
-    const ap = await updateEnrollment(db, casey, e.id, { version: e.version, status: "APPROVED", submittedOn: addDays(today, -60), approvedOn: addDays(today, -10), effectiveOn: addDays(today, -45) });
+    const ap = await updateEnrollment(db, casey, e.id, {
+      version: e.version,
+      status: "APPROVED",
+      submittedOn: addDays(today, -60),
+      approvedOn: addDays(today, -10),
+      effectiveOn: addDays(today, -45),
+    });
     if (verify) await verifyEnrollment(db, approver, e.id, { version: ap.version, sourceName: "Synthetic payer approval letter (DEMO)" });
   };
   // Fixture F: D approved for PPO Y at ALX only; SSP still pending.
@@ -146,9 +262,32 @@ export async function seedCredentialing(db: Db, password: string, slug = "riverb
   await enrollApproved(B.id, mcd.id, "SSP", true);
 
   // ---- Cases ----
-  await createCase(db, casey, { practitionerId: C.id, caseType: "LICENSE_NEW_STATE", title: "Verify APIT for MD telepsychology", ownerUserId: caseyId, dueDate: addDays(today, 7), nextAction: "Approver to review submitted APIT evidence", authorityId: apit.id });
-  await createCase(db, casey, { practitionerId: D.id, caseType: "PAYER_ENROLLMENT", title: "PPO Y enrollment — Silver Spring", ownerUserId: caseyId, dueDate: addDays(today, 21), nextAction: "Follow up with payer on application status", enrollmentId: dSsp.id });
-  await createCase(db, casey, { practitionerId: A.id, caseType: "LICENSE_NEW_STATE", title: "Maryland license application", ownerUserId: caseyId, dueDate: addDays(today, 45), nextAction: "Submit MD application (IMLC claim is not a license)" });
+  await createCase(db, casey, {
+    practitionerId: C.id,
+    caseType: "LICENSE_NEW_STATE",
+    title: "Verify APIT for MD telepsychology",
+    ownerUserId: caseyId,
+    dueDate: addDays(today, 7),
+    nextAction: "Approver to review submitted APIT evidence",
+    authorityId: apit.id,
+  });
+  await createCase(db, casey, {
+    practitionerId: D.id,
+    caseType: "PAYER_ENROLLMENT",
+    title: "PPO Y enrollment — Silver Spring",
+    ownerUserId: caseyId,
+    dueDate: addDays(today, 21),
+    nextAction: "Follow up with payer on application status",
+    enrollmentId: dSsp.id,
+  });
+  await createCase(db, casey, {
+    practitionerId: A.id,
+    caseType: "LICENSE_NEW_STATE",
+    title: "Maryland license application",
+    ownerUserId: caseyId,
+    dueDate: addDays(today, 45),
+    nextAction: "Submit MD application (IMLC claim is not a license)",
+  });
 
   const deadlines = await runCredentialDeadlines(db, { organizationId: o });
   return { skipped: false as const, practitioners: 6, deadlines };

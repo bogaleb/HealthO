@@ -27,12 +27,7 @@ export function SignOutButton({ compact }: { compact?: boolean }) {
     );
   }
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      loading={busy}
-      onClick={onClick}
-    >
+    <Button variant="secondary" size="sm" loading={busy} onClick={onClick}>
       <LogOut className="h-3.5 w-3.5" aria-hidden /> Sign out
     </Button>
   );

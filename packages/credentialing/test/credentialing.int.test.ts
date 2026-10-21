@@ -48,7 +48,15 @@ afterAll(async () => end());
 
 async function verifiedLicense(practitionerId: string, o: Record<string, unknown> = {}) {
   const s = await spec.ctx();
-  const a = await createAuthority(db, s, practitionerId, { authorityType: "STATE_LICENSE", profession: "PHYSICIAN", jurisdiction: "VA", licenseNumberLast4: "1234", effectiveOn: "2025-01-01", expiresOn: "2027-03-31", ...o });
+  const a = await createAuthority(db, s, practitionerId, {
+    authorityType: "STATE_LICENSE",
+    profession: "PHYSICIAN",
+    jurisdiction: "VA",
+    licenseNumberLast4: "1234",
+    effectiveOn: "2025-01-01",
+    expiresOn: "2027-03-31",
+    ...o,
+  });
   const sub = await submitAuthority(db, s, a.id, { version: a.version });
   return verifyAuthority(db, await approver.ctx(), a.id, { version: sub.version, ...review });
 }
@@ -71,7 +79,13 @@ describe("evidence lifecycle + dual control (CRED-01)", () => {
   it("draft → submitted → verified with append-only history; submitter cannot self-verify", async () => {
     const s = await spec.ctx();
     const p = await createPractitioner(db, s, { displayName: "Practitioner A (SYNTHETIC)", profession: "PHYSICIAN", physicalState: "VA", siteIds: [A.sites.s1.id] });
-    const a = await createAuthority(db, s, p.id, { authorityType: "STATE_LICENSE", profession: "PHYSICIAN", jurisdiction: "VA", effectiveOn: "2025-01-01", expiresOn: "2027-03-31" });
+    const a = await createAuthority(db, s, p.id, {
+      authorityType: "STATE_LICENSE",
+      profession: "PHYSICIAN",
+      jurisdiction: "VA",
+      effectiveOn: "2025-01-01",
+      expiresOn: "2027-03-31",
+    });
     expect(a.status).toBe("DRAFT");
     const sub = await submitAuthority(db, s, a.id, { version: a.version });
     // specialist lacks credentialing.approve
@@ -81,13 +95,19 @@ describe("evidence lifecycle + dual control (CRED-01)", () => {
     const mine = await createAuthority(db, adminSelf, p.id, { authorityType: "STATE_LICENSE", profession: "PHYSICIAN", jurisdiction: "MD", effectiveOn: "2025-01-01" });
     const mineSub = await submitAuthority(db, adminSelf, mine.id, { version: mine.version });
     await expectAppError(verifyAuthority(db, adminSelf, mine.id, { version: mineSub.version, ...review }), "FORBIDDEN");
-    const denied = await db.select().from(auditEvents).where(and(eq(auditEvents.resourceId, mine.id), eq(auditEvents.outcome, "DENY")));
+    const denied = await db
+      .select()
+      .from(auditEvents)
+      .where(and(eq(auditEvents.resourceId, mine.id), eq(auditEvents.outcome, "DENY")));
     expect(denied.length).toBe(1);
     const v = await verifyAuthority(db, await approver.ctx(), a.id, { version: sub.version, ...review });
     expect(v.status).toBe("VERIFIED");
     expect(v.verifiedBy).toBe(approver.userId);
     // history is append-only
-    const tamper = await db.execute(sql`update authority_verifications set note = 'x'`).then(() => "ok", (e: Error & { cause?: Error }) => `${e.message} ${e.cause?.message}`);
+    const tamper = await db.execute(sql`update authority_verifications set note = 'x'`).then(
+      () => "ok",
+      (e: Error & { cause?: Error }) => `${e.message} ${e.cause?.message}`,
+    );
     expect(tamper).toMatch(/append-only/);
   });
 
@@ -109,16 +129,43 @@ describe("evidence lifecycle + dual control (CRED-01)", () => {
 
 describe("policy rules (SEC-02, immutability, no blanket compacts)", () => {
   it("only policy.publish can approve; author cannot approve own draft; approved rules immutable; supersede by version", async () => {
-    const draft = await createRuleDraft(db, await spec.ctx(), { jurisdiction: "MD", profession: "PHYSICIAN", modality: "VIDEO", authorizationBasis: ["STATE_LICENSE"], effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 90), sourceSummary: "DEMO" });
+    const draft = await createRuleDraft(db, await spec.ctx(), {
+      jurisdiction: "MD",
+      profession: "PHYSICIAN",
+      modality: "VIDEO",
+      authorizationBasis: ["STATE_LICENSE"],
+      effectiveFrom: "2026-01-01",
+      nextReviewOn: addDays(today, 90),
+      sourceSummary: "DEMO",
+    });
     await expectAppError(approveRule(db, await spec.ctx(), draft.id, { reason: "x" }), "FORBIDDEN"); // SEC-02
     await expectAppError(approveRule(db, await A.users.scheduler.ctx(), draft.id, { reason: "x" }), "FORBIDDEN");
-    const own = await createRuleDraft(db, await compliance.ctx(), { jurisdiction: "DC", profession: "PHYSICIAN", modality: "VIDEO", authorizationBasis: ["STATE_LICENSE"], effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 90), sourceSummary: "DEMO" });
+    const own = await createRuleDraft(db, await compliance.ctx(), {
+      jurisdiction: "DC",
+      profession: "PHYSICIAN",
+      modality: "VIDEO",
+      authorizationBasis: ["STATE_LICENSE"],
+      effectiveFrom: "2026-01-01",
+      nextReviewOn: addDays(today, 90),
+      sourceSummary: "DEMO",
+    });
     await expectAppError(approveRule(db, await compliance.ctx(), own.id, { reason: "x" }), "FORBIDDEN"); // dual control
     const v1 = await approveRule(db, await compliance.ctx(), draft.id, { reason: "Fixture" });
     expect(v1.status).toBe("APPROVED");
-    const tamper = await db.execute(sql`update license_policy_rules set jurisdiction = 'VA' where id = ${v1.id}`).then(() => "ok", (e: Error & { cause?: Error }) => `${e.cause?.message}`);
+    const tamper = await db.execute(sql`update license_policy_rules set jurisdiction = 'VA' where id = ${v1.id}`).then(
+      () => "ok",
+      (e: Error & { cause?: Error }) => `${e.cause?.message}`,
+    );
     expect(tamper).toMatch(/immutable/);
-    const draft2 = await createRuleDraft(db, await spec.ctx(), { jurisdiction: "MD", profession: "PHYSICIAN", modality: "VIDEO", authorizationBasis: ["STATE_LICENSE"], effectiveFrom: "2026-06-01", nextReviewOn: addDays(today, 90), sourceSummary: "DEMO v2" });
+    const draft2 = await createRuleDraft(db, await spec.ctx(), {
+      jurisdiction: "MD",
+      profession: "PHYSICIAN",
+      modality: "VIDEO",
+      authorizationBasis: ["STATE_LICENSE"],
+      effectiveFrom: "2026-06-01",
+      nextReviewOn: addDays(today, 90),
+      sourceSummary: "DEMO v2",
+    });
     expect(draft2.ruleVersion).toBe("2");
     const v2 = await approveRule(db, await compliance.ctx(), draft2.id, { reason: "Fixture v2" });
     expect(v2.supersedesId).toBe(v1.id);
@@ -129,17 +176,38 @@ describe("policy rules (SEC-02, immutability, no blanket compacts)", () => {
 
   it("multistate/APIT basis requires explicit home states; compact claim can never be a basis (DB check)", async () => {
     await expectAppError(
-      createRuleDraft(db, await spec.ctx(), { jurisdiction: "MD", profession: "RN", modality: "VIDEO", authorizationBasis: ["MULTISTATE_LICENSE"], effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 90), sourceSummary: "DEMO" }),
+      createRuleDraft(db, await spec.ctx(), {
+        jurisdiction: "MD",
+        profession: "RN",
+        modality: "VIDEO",
+        authorizationBasis: ["MULTISTATE_LICENSE"],
+        effectiveFrom: "2026-01-01",
+        nextReviewOn: addDays(today, 90),
+        sourceSummary: "DEMO",
+      }),
       "VALIDATION_FAILED",
     );
     await expectAppError(
-      createRuleDraft(db, await spec.ctx(), { jurisdiction: "MD", profession: "RN", modality: "VIDEO", authorizationBasis: ["COMPACT_MEMBERSHIP_CLAIM"], effectiveFrom: "2026-01-01", nextReviewOn: addDays(today, 90), sourceSummary: "DEMO" }),
+      createRuleDraft(db, await spec.ctx(), {
+        jurisdiction: "MD",
+        profession: "RN",
+        modality: "VIDEO",
+        authorizationBasis: ["COMPACT_MEMBERSHIP_CLAIM"],
+        effectiveFrom: "2026-01-01",
+        nextReviewOn: addDays(today, 90),
+        sourceSummary: "DEMO",
+      }),
       "VALIDATION_FAILED",
     );
     const r = await db
-      .execute(sql`insert into license_policy_rules (organization_id, rule_key, rule_version, jurisdiction, profession, modality, authorization_basis, effective_from, next_review_on, source_summary, created_by)
-        values (${A.org.id}, 'x', '1', 'MD', 'RN', 'VIDEO', array['COMPACT_MEMBERSHIP_CLAIM'], '2026-01-01', '2027-01-01', 'x', ${A.users.admin.userId})`)
-      .then(() => "inserted", () => "rejected");
+      .execute(
+        sql`insert into license_policy_rules (organization_id, rule_key, rule_version, jurisdiction, profession, modality, authorization_basis, effective_from, next_review_on, source_summary, created_by)
+        values (${A.org.id}, 'x', '1', 'MD', 'RN', 'VIDEO', array['COMPACT_MEMBERSHIP_CLAIM'], '2026-01-01', '2027-01-01', 'x', ${A.users.admin.userId})`,
+      )
+      .then(
+        () => "inserted",
+        () => "rejected",
+      );
     expect(r).toBe("rejected");
   });
 });
@@ -148,10 +216,21 @@ describe("Phase 3 exit: readiness changes when verification / expiry / payer cha
   it("license readiness follows evidence; payer readiness is independent and site-specific (CRED-02, F)", async () => {
     await approvedRule({ jurisdiction: "VA", profession: "PSYCHOLOGIST" });
     const s = await spec.ctx();
-    const p = await createPractitioner(db, s, { displayName: "Practitioner D (SYNTHETIC)", profession: "PSYCHOLOGIST", physicalState: "VA", siteIds: [A.sites.s1.id, A.sites.s2.id] });
+    const p = await createPractitioner(db, s, {
+      displayName: "Practitioner D (SYNTHETIC)",
+      profession: "PSYCHOLOGIST",
+      physicalState: "VA",
+      siteIds: [A.sites.s1.id, A.sites.s2.id],
+    });
     const cell = async () => (await getReadinessMatrix(db, s, { modality: "VIDEO", profession: "PSYCHOLOGIST" })).license.find((r) => r.practitioner.id === p.id)!.cells.VA!;
     expect((await cell()).decision).toBe("REVIEW"); // no evidence yet
-    const a = await createAuthority(db, s, p.id, { authorityType: "STATE_LICENSE", profession: "PSYCHOLOGIST", jurisdiction: "VA", effectiveOn: "2025-01-01", expiresOn: addDays(today, 200) });
+    const a = await createAuthority(db, s, p.id, {
+      authorityType: "STATE_LICENSE",
+      profession: "PSYCHOLOGIST",
+      jurisdiction: "VA",
+      effectiveOn: "2025-01-01",
+      expiresOn: addDays(today, 200),
+    });
     const sub = await submitAuthority(db, s, a.id, { version: a.version });
     expect((await cell()).reasons.map((r) => r.code)).toContain("AUTHORITY_NOT_VERIFIED");
     const v = await verifyAuthority(db, await approver.ctx(), a.id, { version: sub.version, ...review });
@@ -166,12 +245,20 @@ describe("Phase 3 exit: readiness changes when verification / expiry / payer cha
     const plan = (await createPlan(db, s, { payerId: payer.id, code: "PPOY", name: "PPO Y" }))!;
     const e1 = (await createEnrollment(db, s, { practitionerId: p.id, payerPlanId: plan.id, siteId: A.sites.s1.id, status: "SUBMITTED", submittedOn: today }))!;
     await createEnrollment(db, s, { practitionerId: p.id, payerPlanId: plan.id, siteId: A.sites.s2.id, status: "SUBMITTED", submittedOn: today });
-    const payerCell = async (siteId: string) => (await getReadinessMatrix(db, s, { modality: "VIDEO", profession: "PSYCHOLOGIST" })).payer.find((r) => r.practitioner.id === p.id && r.site.id === siteId)!.plans.find((x) => x.planId === plan.id)!.result;
+    const payerCell = async (siteId: string) =>
+      (await getReadinessMatrix(db, s, { modality: "VIDEO", profession: "PSYCHOLOGIST" })).payer
+        .find((r) => r.practitioner.id === p.id && r.site.id === siteId)!
+        .plans.find((x) => x.planId === plan.id)!.result;
     expect((await payerCell(A.sites.s1.id)).status).toBe("NOT_READY");
     await expectAppError(updateEnrollment(db, s, e1.id, { version: e1.version, status: "APPROVED" }), "VALIDATION_FAILED"); // dates required
     const appr = await updateEnrollment(db, s, e1.id, { version: e1.version, status: "APPROVED", approvedOn: today, effectiveOn: addDays(today, -30) });
     expect((await payerCell(A.sites.s1.id)).status).toBe("UNKNOWN"); // recorded but unverified
-    await expectAppError(verifyEnrollment(db, await A.users.admin.ctx(), e1.id, { version: appr.version, sourceName: "x" }).then(() => verifyEnrollment(db, s, e1.id, { version: appr.version + 1, sourceName: "x" })), "FORBIDDEN");
+    await expectAppError(
+      verifyEnrollment(db, await A.users.admin.ctx(), e1.id, { version: appr.version, sourceName: "x" }).then(() =>
+        verifyEnrollment(db, s, e1.id, { version: appr.version + 1, sourceName: "x" }),
+      ),
+      "FORBIDDEN",
+    );
     expect((await payerCell(A.sites.s1.id)).status).toBe("READY");
     expect((await payerCell(A.sites.s2.id)).status).toBe("NOT_READY");
   });
@@ -202,10 +289,23 @@ describe("deadline job (OPS-01) and expiry", () => {
     const again = await runCredentialDeadlines(db, { organizationId: A.org.id });
     expect(again).toEqual({ expired: 0, tasksCreated: 0 });
     const notices = await db.select().from(credentialDeadlineNotices).where(eq(credentialDeadlineNotices.organizationId, A.org.id));
-    expect(notices.filter((n) => n.authorityId === soon.id).map((n) => n.thresholdDays).sort()).toEqual(["30", "60", "90"]);
+    expect(
+      notices
+        .filter((n) => n.authorityId === soon.id)
+        .map((n) => n.thresholdDays)
+        .sort(),
+    ).toEqual(["30", "60", "90"]);
     expect(notices.filter((n) => n.authorityId === soon.id && n.taskId).length).toBe(1);
-    expect(notices.filter((n) => n.authorityId === later.id).map((n) => n.thresholdDays).sort()).toEqual(["90"]);
-    const renewTasks = await db.select().from(tasks).where(and(eq(tasks.organizationId, A.org.id), sql`'renewal' = any(${tasks.labels})`));
+    expect(
+      notices
+        .filter((n) => n.authorityId === later.id)
+        .map((n) => n.thresholdDays)
+        .sort(),
+    ).toEqual(["90"]);
+    const renewTasks = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.organizationId, A.org.id), sql`'renewal' = any(${tasks.labels})`));
     expect(renewTasks).toHaveLength(2);
     const d = await getPractitionerDetail(db, await spec.ctx(), p.id);
     expect(d.authorities.find((a) => a.id === past.id)!.status).toBe("EXPIRED");
@@ -262,6 +362,13 @@ describe("authorization and isolation", () => {
     await expectAppError(createPractitioner(db, sctx, { displayName: "x", profession: "RN", siteIds: [A.sites.s2.id] }), "FORBIDDEN");
     const forged = await createPractitioner(db, admin, { displayName: "Forged org (SYNTHETIC)", profession: "RN", organizationId: B.org.id } as never);
     expect(forged.organizationId).toBe(A.org.id);
-    await expectAppError(createPractitioner(db, admin, { displayName: "x", profession: "RN", serviceIds: [(await db.insert(services).values({ organizationId: B.org.id, code: "X", name: "x", category: "NURSING" }).returning())[0]!.id] }), "VALIDATION_FAILED");
+    await expectAppError(
+      createPractitioner(db, admin, {
+        displayName: "x",
+        profession: "RN",
+        serviceIds: [(await db.insert(services).values({ organizationId: B.org.id, code: "X", name: "x", category: "NURSING" }).returning())[0]!.id],
+      }),
+      "VALIDATION_FAILED",
+    );
   });
 });

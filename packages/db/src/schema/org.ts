@@ -1,17 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  boolean,
-  check,
-  foreignKey,
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  unique,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, orgId, updatedAt, version } from "./_common";
 import { users } from "./auth";
 
@@ -158,9 +146,7 @@ export const roleGrants = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    foreignKey({ columns: [t.organizationId, t.membershipId], foreignColumns: [memberships.organizationId, memberships.id] }).onDelete(
-      "cascade",
-    ),
+    foreignKey({ columns: [t.organizationId, t.membershipId], foreignColumns: [memberships.organizationId, memberships.id] }).onDelete("cascade"),
     foreignKey({ columns: [t.organizationId, t.roleId], foreignColumns: [roles.organizationId, roles.id] }),
     foreignKey({ columns: [t.organizationId, t.siteId], foreignColumns: [sites.organizationId, sites.id] }),
     foreignKey({ columns: [t.organizationId, t.departmentId], foreignColumns: [departments.organizationId, departments.id] }),
@@ -184,8 +170,5 @@ export const invites = pgTable(
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [
-    check("invites_status_ck", sql`${t.status} in ('PENDING','ACCEPTED','REVOKED','EXPIRED')`),
-    index("invites_org_email_idx").on(t.organizationId, t.email),
-  ],
+  (t) => [check("invites_status_ck", sql`${t.status} in ('PENDING','ACCEPTED','REVOKED','EXPIRED')`), index("invites_org_email_idx").on(t.organizationId, t.email)],
 );

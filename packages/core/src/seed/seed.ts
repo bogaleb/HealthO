@@ -28,9 +28,36 @@ export async function seedDemo(db: Db, password: string) {
   const [alx, ssp, nedc] = await db
     .insert(sites)
     .values([
-      { organizationId: o, code: "ALX", name: "Alexandria Family Clinic", state: "VA", timezone: "America/New_York", addressLine1: "100 Demo Street (synthetic)", city: "Alexandria", postalCode: "22301" },
-      { organizationId: o, code: "SSP", name: "Silver Spring Health Center", state: "MD", timezone: "America/New_York", addressLine1: "200 Example Ave (synthetic)", city: "Silver Spring", postalCode: "20910" },
-      { organizationId: o, code: "NEDC", name: "Northeast DC Behavioral Health", state: "DC", timezone: "America/New_York", addressLine1: "300 Sample Blvd (synthetic)", city: "Washington", postalCode: "20002" },
+      {
+        organizationId: o,
+        code: "ALX",
+        name: "Alexandria Family Clinic",
+        state: "VA",
+        timezone: "America/New_York",
+        addressLine1: "100 Demo Street (synthetic)",
+        city: "Alexandria",
+        postalCode: "22301",
+      },
+      {
+        organizationId: o,
+        code: "SSP",
+        name: "Silver Spring Health Center",
+        state: "MD",
+        timezone: "America/New_York",
+        addressLine1: "200 Example Ave (synthetic)",
+        city: "Silver Spring",
+        postalCode: "20910",
+      },
+      {
+        organizationId: o,
+        code: "NEDC",
+        name: "Northeast DC Behavioral Health",
+        state: "DC",
+        timezone: "America/New_York",
+        addressLine1: "300 Sample Blvd (synthetic)",
+        city: "Washington",
+        postalCode: "20002",
+      },
     ])
     .returning();
   const deptRows = await db
@@ -54,7 +81,11 @@ export async function seedDemo(db: Db, password: string) {
   const admin = await mk("admin", { professionalRole: "Operations Director", departmentId: dept.ADMIN, grants: [{ roleId: roleIds.org_admin! }] });
   const pm = await mk("pm", { professionalRole: "Project Manager", departmentId: dept.ADMIN, grants: [{ roleId: roleIds.project_manager! }, { roleId: roleIds.executive! }] });
   await mk("scheduler", { professionalRole: "Patient Access Representative", departmentId: dept.SCHED, grants: [{ roleId: roleIds.scheduler!, siteId: alx!.id }] });
-  const cred = await mk("cred", { professionalRole: "Credentialing Specialist", departmentId: dept.CRED, grants: [{ roleId: roleIds.credentialing_specialist!, departmentId: dept.CRED }] });
+  const cred = await mk("cred", {
+    professionalRole: "Credentialing Specialist",
+    departmentId: dept.CRED,
+    grants: [{ roleId: roleIds.credentialing_specialist!, departmentId: dept.CRED }],
+  });
   const rcm = await mk("rcm", { professionalRole: "Billing Follow-up Analyst", departmentId: dept.RCM, grants: [{ roleId: roleIds.rcm_analyst!, departmentId: dept.RCM }] });
   await mk("auditor", { professionalRole: "Compliance Auditor", departmentId: dept.ADMIN, grants: [{ roleId: roleIds.auditor! }] });
 
@@ -67,7 +98,10 @@ export async function seedDemo(db: Db, password: string) {
       departmentId: dept.CRED,
       name: "Provider Onboarding (Credentialing)",
       description: "Standard onboarding checklist for a newly hired provider. Synthetic template.",
-      milestones: [{ name: "Documents collected", offsetDays: 14 }, { name: "Ready to schedule", offsetDays: 60 }],
+      milestones: [
+        { name: "Documents collected", offsetDays: 14 },
+        { name: "Ready to schedule", offsetDays: 60 },
+      ],
       tasks: [
         { title: "Collect CV, attestation and supporting documents", priority: "HIGH", offsetDays: 7, milestone: "Documents collected", labels: ["intake"] },
         { title: "Primary-source verify state license(s)", priority: "HIGH", offsetDays: 14, milestone: "Documents collected", labels: ["license"] },
@@ -103,10 +137,39 @@ export async function seedDemo(db: Db, password: string) {
   const m1 = await createMilestone(db, ctx, bill.id, { name: "Baseline and segmentation", dueDate: addDays(today, -3) });
   const m2 = await createMilestone(db, ctx, bill.id, { name: "Top payer follow-up sprint", dueDate: addDays(today, 30) });
   const t = async (input: Record<string, unknown>) => (await createTask(db, ctx, { projectId: bill.id, ...input })).task;
-  const b1 = await t({ title: "Export de-identified aging summary by payer", priority: "HIGH", ownerUserId: rcm.userId, dueDate: addDays(today, -10), milestoneId: m1.id, labels: ["analysis"] });
-  const b2 = await t({ title: "Segment >90-day balances by denial reason", priority: "HIGH", ownerUserId: rcm.userId, dueDate: addDays(today, -2), milestoneId: m1.id, labels: ["analysis"] });
-  const b3 = await t({ title: "Build follow-up worklist for top 5 payers", priority: "URGENT", ownerUserId: rcm.userId, collaboratorUserIds: [pm.userId], dueDate: today, milestoneId: m2.id, labels: ["worklist"] });
-  const b4 = await t({ title: "Escalate credentialing-related denials to Credentialing", priority: "MEDIUM", ownerUserId: cred.userId, dueDate: addDays(today, 5), milestoneId: m2.id, labels: ["credentialing", "escalation"] });
+  const b1 = await t({
+    title: "Export de-identified aging summary by payer",
+    priority: "HIGH",
+    ownerUserId: rcm.userId,
+    dueDate: addDays(today, -10),
+    milestoneId: m1.id,
+    labels: ["analysis"],
+  });
+  const b2 = await t({
+    title: "Segment >90-day balances by denial reason",
+    priority: "HIGH",
+    ownerUserId: rcm.userId,
+    dueDate: addDays(today, -2),
+    milestoneId: m1.id,
+    labels: ["analysis"],
+  });
+  const b3 = await t({
+    title: "Build follow-up worklist for top 5 payers",
+    priority: "URGENT",
+    ownerUserId: rcm.userId,
+    collaboratorUserIds: [pm.userId],
+    dueDate: today,
+    milestoneId: m2.id,
+    labels: ["worklist"],
+  });
+  const b4 = await t({
+    title: "Escalate credentialing-related denials to Credentialing",
+    priority: "MEDIUM",
+    ownerUserId: cred.userId,
+    dueDate: addDays(today, 5),
+    milestoneId: m2.id,
+    labels: ["credentialing", "escalation"],
+  });
   const b5 = await t({ title: "Weekly status readout to CFO", priority: "LOW", ownerUserId: pm.userId, dueDate: addDays(today, 7), labels: ["reporting"] });
   const b6 = await t({ title: "Corrected-claim backlog triage", priority: "MEDIUM", ownerUserId: rcm.userId, dueDate: addDays(today, 14), milestoneId: m2.id });
   await t({ title: "Document timely-filing rules per payer contract (config, not hard-coded)", priority: "MEDIUM", dueDate: addDays(today, 21), labels: ["policy"] });
@@ -148,8 +211,22 @@ export async function seedDemo(db: Db, password: string) {
     dueDate: addDays(today, 60),
     templateId: tmpl[0]!.id,
   }))!;
-  await createTask(db, ctx, { projectId: onb.id, title: "Practitioner B (RN): record synthetic multistate authorization evidence", priority: "HIGH", ownerUserId: cred.userId, dueDate: addDays(today, 3), labels: ["license", "demo-fixture"] });
-  await createTask(db, ctx, { projectId: onb.id, title: "Practitioner C (psychologist): request APIT evidence (synthetic)", priority: "MEDIUM", ownerUserId: cred.userId, dueDate: addDays(today, -1), labels: ["license", "demo-fixture"] });
+  await createTask(db, ctx, {
+    projectId: onb.id,
+    title: "Practitioner B (RN): record synthetic multistate authorization evidence",
+    priority: "HIGH",
+    ownerUserId: cred.userId,
+    dueDate: addDays(today, 3),
+    labels: ["license", "demo-fixture"],
+  });
+  await createTask(db, ctx, {
+    projectId: onb.id,
+    title: "Practitioner C (psychologist): request APIT evidence (synthetic)",
+    priority: "MEDIUM",
+    ownerUserId: cred.userId,
+    dueDate: addDays(today, -1),
+    labels: ["license", "demo-fixture"],
+  });
 
   return { skipped: false as const, organizationId: o, sites: [alx!.code, ssp!.code, nedc!.code] };
 }
@@ -165,7 +242,12 @@ if (isMain(import.meta.url)) {
   seedDemo(db, pw)
     .then((r) => {
       console.log(JSON.stringify({ level: "info", msg: r.skipped ? "demo organization already seeded — skipping" : "synthetic demo data seeded", ...r }));
-      if (!r.skipped) console.log(`Demo sign-in emails: ${Object.values(DEMO_USERS).map((u) => u.email).join(", ")} (password = DEMO_PASSWORD from .env)`);
+      if (!r.skipped)
+        console.log(
+          `Demo sign-in emails: ${Object.values(DEMO_USERS)
+            .map((u) => u.email)
+            .join(", ")} (password = DEMO_PASSWORD from .env)`,
+        );
     })
     .catch((e) => {
       console.error(e);

@@ -26,7 +26,10 @@ export default tseslint.config(
     // Architecture rule: domain packages must not depend on Next.js or React.
     files: ["packages/{core,auth,db,shared}/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [{ group: ["next", "next/*", "react", "react-dom", "@projectos/ui"], message: "Domain packages must stay framework-free." }] }],
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ group: ["next", "next/*", "react", "react-dom", "@projectos/ui"], message: "Domain packages must stay framework-free." }] },
+      ],
     },
   },
 );

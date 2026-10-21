@@ -20,7 +20,10 @@ export async function createPayer(db: Db, ctx: AuthContext, input: unknown) {
   const d = parse(payerCreate, input);
   try {
     return await db.transaction(async (tx) => {
-      const [p] = await tx.insert(payers).values({ ...d, organizationId: ctx.organizationId }).returning();
+      const [p] = await tx
+        .insert(payers)
+        .values({ ...d, organizationId: ctx.organizationId })
+        .returning();
       await audit(tx, ctx, { action: "payer.create", resourceType: "payer", resourceId: p!.id });
       return p!;
     });
@@ -32,11 +35,17 @@ export async function createPayer(db: Db, ctx: AuthContext, input: unknown) {
 export async function createPlan(db: Db, ctx: AuthContext, input: unknown) {
   await authorize(db, ctx, "credentialing.edit", {}, { action: "payer_plan.create", resourceType: "payer_plan" });
   const d = parse(planCreate, input);
-  const [p] = await db.select({ id: payers.id }).from(payers).where(and(eq(payers.organizationId, ctx.organizationId), eq(payers.id, d.payerId)));
+  const [p] = await db
+    .select({ id: payers.id })
+    .from(payers)
+    .where(and(eq(payers.organizationId, ctx.organizationId), eq(payers.id, d.payerId)));
   if (!p) throw new AppError("VALIDATION_FAILED", "Unknown payer.", [{ code: "UNKNOWN_PAYER", field: "payerId" }]);
   try {
     return await db.transaction(async (tx) => {
-      const [plan] = await tx.insert(payerPlans).values({ ...d, organizationId: ctx.organizationId }).returning();
+      const [plan] = await tx
+        .insert(payerPlans)
+        .values({ ...d, organizationId: ctx.organizationId })
+        .returning();
       await audit(tx, ctx, { action: "payer_plan.create", resourceType: "payer_plan", resourceId: plan!.id });
       return plan!;
     });
@@ -50,12 +59,23 @@ export async function createEnrollment(db: Db, ctx: AuthContext, input: unknown)
   const { siteIds } = await loadPractitioner(db, ctx, d.practitionerId, { perm: "credentialing.edit", action: "enrollment.create" });
   if (!siteIds.includes(d.siteId)) throw new AppError("VALIDATION_FAILED", "The provider is not affiliated with that site.", [{ code: "SITE_NOT_AFFILIATED", field: "siteId" }]);
   if (d.status === "APPROVED") throw new AppError("VALIDATION_FAILED", "Create the enrollment first, then record approval with its dates.");
-  const [plan] = await db.select({ id: payerPlans.id }).from(payerPlans).where(and(eq(payerPlans.organizationId, ctx.organizationId), eq(payerPlans.id, d.payerPlanId)));
+  const [plan] = await db
+    .select({ id: payerPlans.id })
+    .from(payerPlans)
+    .where(and(eq(payerPlans.organizationId, ctx.organizationId), eq(payerPlans.id, d.payerPlanId)));
   if (!plan) throw new AppError("VALIDATION_FAILED", "Unknown plan.", [{ code: "UNKNOWN_PLAN", field: "payerPlanId" }]);
   try {
     return await db.transaction(async (tx) => {
-      const [e] = await tx.insert(providerEnrollments).values({ ...d, organizationId: ctx.organizationId, statusSetBy: ctx.userId }).returning();
-      await audit(tx, ctx, { action: "enrollment.create", resourceType: "enrollment", resourceId: e!.id, metadata: { practitionerId: d.practitionerId, siteId: d.siteId, status: d.status } });
+      const [e] = await tx
+        .insert(providerEnrollments)
+        .values({ ...d, organizationId: ctx.organizationId, statusSetBy: ctx.userId })
+        .returning();
+      await audit(tx, ctx, {
+        action: "enrollment.create",
+        resourceType: "enrollment",
+        resourceId: e!.id,
+        metadata: { practitionerId: d.practitionerId, siteId: d.siteId, status: d.status },
+      });
       return e!;
     });
   } catch (e) {
@@ -64,7 +84,10 @@ export async function createEnrollment(db: Db, ctx: AuthContext, input: unknown)
 }
 
 async function loadEnrollment(db: Db, ctx: AuthContext, id: string) {
-  const [e] = await db.select().from(providerEnrollments).where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.id, id)));
+  const [e] = await db
+    .select()
+    .from(providerEnrollments)
+    .where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.id, id)));
   if (!e) throw notFound("Enrollment");
   const { siteIds } = await loadPractitioner(db, ctx, e.practitionerId);
   return { e, siteIds };
@@ -73,10 +96,13 @@ async function loadEnrollment(db: Db, ctx: AuthContext, id: string) {
 /** Status changes always clear prior verification: an approval must be re-verified after any change. */
 export async function updateEnrollment(db: Db, ctx: AuthContext, id: string, input: unknown) {
   const { e, siteIds } = await loadEnrollment(db, ctx, id);
-  if (!canOnPractitioner(ctx, "credentialing.edit", siteIds)) await authorize(db, ctx, "credentialing.edit", {}, { action: "enrollment.update", resourceType: "enrollment", resourceId: id });
+  if (!canOnPractitioner(ctx, "credentialing.edit", siteIds))
+    await authorize(db, ctx, "credentialing.edit", {}, { action: "enrollment.update", resourceType: "enrollment", resourceId: id });
   const { version, ...d } = parse(enrollmentUpdate, input);
   if (d.status === "APPROVED" && (!d.approvedOn || !d.effectiveOn)) {
-    throw new AppError("VALIDATION_FAILED", "Approval needs both the confirmation date and the (possibly retro) effective date.", [{ code: "APPROVAL_DATES", field: "effectiveOn" }]);
+    throw new AppError("VALIDATION_FAILED", "Approval needs both the confirmation date and the (possibly retro) effective date.", [
+      { code: "APPROVAL_DATES", field: "effectiveOn" },
+    ]);
   }
   if (d.status === "TERMINATED" && !d.terminatedOn) throw new AppError("VALIDATION_FAILED", "Termination date is required.", [{ code: "TERMINATION_DATE", field: "terminatedOn" }]);
   return db.transaction(async (tx) => {
@@ -93,7 +119,8 @@ export async function updateEnrollment(db: Db, ctx: AuthContext, id: string, inp
 
 export async function verifyEnrollment(db: Db, ctx: AuthContext, id: string, input: unknown) {
   const { e, siteIds } = await loadEnrollment(db, ctx, id);
-  if (!canOnPractitioner(ctx, "credentialing.approve", siteIds)) await authorize(db, ctx, "credentialing.approve", {}, { action: "enrollment.verify", resourceType: "enrollment", resourceId: id });
+  if (!canOnPractitioner(ctx, "credentialing.approve", siteIds))
+    await authorize(db, ctx, "credentialing.approve", {}, { action: "enrollment.verify", resourceType: "enrollment", resourceId: id });
   const d = parse(enrollmentVerify, input);
   if (e.status !== "APPROVED") throw new AppError("CONFLICT", "Only an approved enrollment can be verified.");
   if ((await dualControlEnabled(db, ctx.organizationId)) && e.statusSetBy === ctx.userId) {
@@ -111,4 +138,3 @@ export async function verifyEnrollment(db: Db, ctx: AuthContext, id: string, inp
     return row;
   });
 }
-

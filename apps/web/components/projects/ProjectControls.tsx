@@ -21,13 +21,22 @@ interface ProjectLite {
 
 export function ProjectSettingsForm({ project, members }: { project: ProjectLite; members: { userId: string; displayName: string }[] }) {
   const router = useRouter();
-  const init = { name: project.name, description: project.description ?? "", status: project.status, health: project.health, ownerUserId: project.ownerUserId ?? "", startDate: project.startDate ?? "", dueDate: project.dueDate ?? "" };
+  const init = {
+    name: project.name,
+    description: project.description ?? "",
+    status: project.status,
+    health: project.health,
+    ownerUserId: project.ownerUserId ?? "",
+    startDate: project.startDate ?? "",
+    dueDate: project.dueDate ?? "",
+  };
   const [f, setF] = useState(init);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const dirty = JSON.stringify(f) !== JSON.stringify(init);
   return (
-    <form method="post"
+    <form
+      method="post"
       className="space-y-3 p-4"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -36,7 +45,14 @@ export function ProjectSettingsForm({ project, members }: { project: ProjectLite
         try {
           await apiFetch(`/api/v1/projects/${project.id}`, {
             method: "PATCH",
-            body: { ...f, description: f.description || null, ownerUserId: f.ownerUserId || null, startDate: f.startDate || null, dueDate: f.dueDate || null, version: project.version },
+            body: {
+              ...f,
+              description: f.description || null,
+              ownerUserId: f.ownerUserId || null,
+              startDate: f.startDate || null,
+              dueDate: f.dueDate || null,
+              version: project.version,
+            },
           });
           setMsg({ ok: true, text: "Saved." });
           reliableRefresh(router);
@@ -90,7 +106,14 @@ export function ProjectSettingsForm({ project, members }: { project: ProjectLite
       <Field label="Description" htmlFor="p-desc">
         <Textarea id="p-desc" rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
       </Field>
-      {msg && (msg.ok ? <p role="status" className="text-sm text-emerald-700">{msg.text}</p> : <ErrorState title="Not saved" message={msg.text} />)}
+      {msg &&
+        (msg.ok ? (
+          <p role="status" className="text-sm text-emerald-700">
+            {msg.text}
+          </p>
+        ) : (
+          <ErrorState title="Not saved" message={msg.text} />
+        ))}
       <div className="flex justify-end">
         <Button type="submit" size="sm" loading={busy} disabled={!dirty}>
           Save project
@@ -107,7 +130,8 @@ export function AddMilestoneForm({ projectId }: { projectId: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <form method="post"
+    <form
+      method="post"
       className="flex flex-wrap items-end gap-2 border-t border-slate-100 px-4 py-3"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -134,7 +158,11 @@ export function AddMilestoneForm({ projectId }: { projectId: string }) {
       <Button type="submit" size="sm" variant="secondary" loading={busy} disabled={!name.trim()}>
         Add
       </Button>
-      {err && <p role="alert" className="w-full text-sm text-red-700">{err}</p>}
+      {err && (
+        <p role="alert" className="w-full text-sm text-red-700">
+          {err}
+        </p>
+      )}
     </form>
   );
 }
@@ -146,7 +174,8 @@ export function AddRecurringForm({ projectId, members, defaultStart }: { project
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
-    <form method="post"
+    <form
+      method="post"
       className="grid grid-cols-2 gap-3 border-t border-slate-100 px-4 py-3 md:grid-cols-4"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -233,7 +262,11 @@ export function AddRecurringForm({ projectId, members, defaultStart }: { project
           Add recurring task
         </Button>
       </div>
-      {err && <p role="alert" className="col-span-2 text-sm text-red-700 md:col-span-4">{err}</p>}
+      {err && (
+        <p role="alert" className="col-span-2 text-sm text-red-700 md:col-span-4">
+          {err}
+        </p>
+      )}
     </form>
   );
 }

@@ -50,7 +50,11 @@ export const PAYER_TONE: Record<string, Tone> = { READY: "green", NOT_READY: "re
 export const PAYER_LABEL: Record<string, string> = { READY: "Ready", NOT_READY: "Not ready", UNKNOWN: "Unverified", NOT_REQUIRED: "Not required" };
 export const ENROLLMENT_TONE: Record<string, Tone> = { NOT_STARTED: "neutral", SUBMITTED: "amber", AWAITING_INFO: "amber", APPROVED: "green", DENIED: "red", TERMINATED: "red" };
 export const CASE_STATUS_TONE: Record<string, Tone> = { OPEN: "neutral", IN_PROGRESS: "blue", WAITING_EXTERNAL: "amber", COMPLETED: "green", CANCELLED: "neutral" };
-export const humanize = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+export const humanize = (s: string) =>
+  s
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
 
 /** Days from `today` to a date-only value (negative = past). */
 export function daysUntil(d: string, today: string) {

@@ -1,20 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  boolean,
-  check,
-  date,
-  doublePrecision,
-  foreignKey,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  unique,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, check, date, doublePrecision, foreignKey, index, integer, jsonb, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, orgId, updatedAt, version } from "./_common";
 import { departments, organizations, sites } from "./org";
 import { users } from "./auth";
@@ -118,10 +103,7 @@ export const recurringTaskDefinitions = pgTable(
     unique("recurring_org_id_uq").on(t.organizationId, t.id),
     foreignKey({ columns: [t.organizationId, t.projectId], foreignColumns: [projects.organizationId, projects.id] }).onDelete("cascade"),
     check("recurring_cadence_ck", sql`${t.cadence} in ('DAILY','WEEKLY','MONTHLY')`),
-    check(
-      "recurring_cadence_fields_ck",
-      sql`(${t.cadence} <> 'WEEKLY' or ${t.weekday} between 0 and 6) and (${t.cadence} <> 'MONTHLY' or ${t.monthDay} between 1 and 28)`,
-    ),
+    check("recurring_cadence_fields_ck", sql`(${t.cadence} <> 'WEEKLY' or ${t.weekday} between 0 and 6) and (${t.cadence} <> 'MONTHLY' or ${t.monthDay} between 1 and 28)`),
   ],
 );
 
@@ -142,7 +124,10 @@ export const tasks = pgTable(
     ownerUserId: uuid("owner_user_id").references(() => users.id),
     dueDate: date("due_date"),
     dueTimezone: text("due_timezone").notNull().default("America/New_York"),
-    labels: text("labels").array().notNull().default(sql`'{}'::text[]`),
+    labels: text("labels")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     position: doublePrecision("position").notNull().default(0),
     recurringDefinitionId: uuid("recurring_definition_id"),
     occurrenceDate: date("occurrence_date"),

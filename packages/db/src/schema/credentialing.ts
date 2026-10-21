@@ -38,7 +38,10 @@ export const practitioners = pgTable(
     userId: uuid("user_id").references(() => users.id),
     physicalState: text("physical_state"),
     telehealthCapable: boolean("telehealth_capable").notNull().default(false),
-    languages: text("languages").array().notNull().default(sql`'{}'::text[]`),
+    languages: text("languages")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     active: boolean("active").notNull().default(true),
     isSynthetic: boolean("is_synthetic").notNull().default(true),
     createdBy: uuid("created_by"),
@@ -116,10 +119,7 @@ export const professionalAuthorities = pgTable(
     index("authorities_org_status_exp_idx").on(t.organizationId, t.status, t.expiresOn),
     check("authorities_dates_ck", sql`${t.expiresOn} is null or ${t.expiresOn} >= ${t.effectiveOn}`),
     check("authorities_status_ck", sql`${t.status} in ('DRAFT','SUBMITTED','VERIFIED','REJECTED','SUSPENDED','REVOKED','EXPIRED')`),
-    check(
-      "authorities_type_ck",
-      sql`${t.authorityType} in ('STATE_LICENSE','MULTISTATE_LICENSE','APIT','TEMPORARY_PERMIT','DOCUMENTED_EXEMPTION','COMPACT_MEMBERSHIP_CLAIM')`,
-    ),
+    check("authorities_type_ck", sql`${t.authorityType} in ('STATE_LICENSE','MULTISTATE_LICENSE','APIT','TEMPORARY_PERMIT','DOCUMENTED_EXEMPTION','COMPACT_MEMBERSHIP_CLAIM')`),
     check("authorities_last4_ck", sql`${t.licenseNumberLast4} is null or char_length(${t.licenseNumberLast4}) <= 4`),
     check("authorities_verified_has_reviewer_ck", sql`${t.status} <> 'VERIFIED' or (${t.verifiedBy} is not null and ${t.verifiedAt} is not null)`),
   ],
@@ -160,8 +160,14 @@ export const licensePolicyRules = pgTable(
     serviceCategory: text("service_category"),
     modality: text("modality").notNull(),
     authorizationBasis: text("authorization_basis").array().notNull(),
-    acceptedHomeStates: text("accepted_home_states").array().notNull().default(sql`'{}'::text[]`),
-    providerStates: text("provider_states").array().notNull().default(sql`'{}'::text[]`),
+    acceptedHomeStates: text("accepted_home_states")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    providerStates: text("provider_states")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
     nextReviewOn: date("next_review_on").notNull(),
@@ -277,10 +283,7 @@ export const credentialingCases = pgTable(
     foreignKey({ columns: [t.organizationId, t.taskId], foreignColumns: [tasks.organizationId, tasks.id] }),
     index("cases_org_status_due_idx").on(t.organizationId, t.status, t.dueDate),
     check("cases_status_ck", sql`${t.status} in ('OPEN','IN_PROGRESS','WAITING_EXTERNAL','COMPLETED','CANCELLED')`),
-    check(
-      "cases_type_ck",
-      sql`${t.caseType} in ('INITIAL_CREDENTIALING','RECREDENTIALING','LICENSE_NEW_STATE','LICENSE_RENEWAL','PAYER_ENROLLMENT')`,
-    ),
+    check("cases_type_ck", sql`${t.caseType} in ('INITIAL_CREDENTIALING','RECREDENTIALING','LICENSE_NEW_STATE','LICENSE_RENEWAL','PAYER_ENROLLMENT')`),
   ],
 );
 
@@ -301,4 +304,3 @@ export const credentialDeadlineNotices = pgTable(
     foreignKey({ columns: [t.organizationId, t.authorityId], foreignColumns: [professionalAuthorities.organizationId, professionalAuthorities.id] }).onDelete("cascade"),
   ],
 );
-

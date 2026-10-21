@@ -27,7 +27,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   };
   return (
     <div>
-      <PageHeader title="Audit Log" description="Append-only (enforced by a database trigger). Metadata holds IDs and field names only — never patient data. Viewing this page is itself audited only on denial." />
+      <PageHeader
+        title="Audit Log"
+        description="Append-only (enforced by a database trigger). Metadata holds IDs and field names only — never patient data. Viewing this page is itself audited only on denial."
+      />
       <form method="get" className="mb-3 flex flex-wrap items-end gap-2" aria-label="Filter audit events">
         <div>
           <label htmlFor="a-outcome" className="block text-xs font-medium text-slate-600">
@@ -71,13 +74,27 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           <table className="w-full text-left text-[13px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>
-                <th scope="col" className="px-3 py-2">When</th>
-                <th scope="col" className="px-3 py-2">Actor</th>
-                <th scope="col" className="px-3 py-2">Action</th>
-                <th scope="col" className="px-3 py-2">Outcome</th>
-                <th scope="col" className="px-3 py-2">Resource</th>
-                <th scope="col" className="px-3 py-2">Metadata</th>
-                <th scope="col" className="px-3 py-2">Request</th>
+                <th scope="col" className="px-3 py-2">
+                  When
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Actor
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Action
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Outcome
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Resource
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Metadata
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Request
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

@@ -35,7 +35,17 @@ const COLUMN_ACCENT: Record<string, string> = {
   DONE: "border-t-emerald-500",
 };
 
-export function Board({ projectId, initialTasks, canEdit, members }: { projectId: string; initialTasks: BoardTask[]; canEdit: boolean; members: { userId: string; displayName: string }[] }) {
+export function Board({
+  projectId,
+  initialTasks,
+  canEdit,
+  members,
+}: {
+  projectId: string;
+  initialTasks: BoardTask[];
+  canEdit: boolean;
+  members: { userId: string; displayName: string }[];
+}) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +65,10 @@ export function Board({ projectId, initialTasks, canEdit, members }: { projectId
   const visible = useMemo(
     () =>
       tasks.filter(
-        (t) => (!owner || (owner === "none" ? !t.ownerUserId : t.ownerUserId === owner)) && (!priority || t.priority === priority) && (!q || t.title.toLowerCase().includes(q.toLowerCase())),
+        (t) =>
+          (!owner || (owner === "none" ? !t.ownerUserId : t.ownerUserId === owner)) &&
+          (!priority || t.priority === priority) &&
+          (!q || t.title.toLowerCase().includes(q.toLowerCase())),
       ),
     [tasks, owner, priority, q],
   );
@@ -160,7 +173,11 @@ export function Board({ projectId, initialTasks, canEdit, members }: { projectId
               key={status}
               aria-label={`${TASK_STATUS_LABEL[status]} column, ${col.length} tasks`}
               data-testid={`column-${status}`}
-              className={cn("flex min-h-[200px] flex-col rounded-lg border border-t-4 border-slate-200 bg-slate-100/70", COLUMN_ACCENT[status], dropHint?.status === status && !dropHint.beforeId && "ring-2 ring-teal-500")}
+              className={cn(
+                "flex min-h-[200px] flex-col rounded-lg border border-t-4 border-slate-200 bg-slate-100/70",
+                COLUMN_ACCENT[status],
+                dropHint?.status === status && !dropHint.beforeId && "ring-2 ring-teal-500",
+              )}
               onDragOver={(e) => {
                 if (!dragId) return;
                 e.preventDefault();
@@ -244,29 +261,40 @@ export function Board({ projectId, initialTasks, canEdit, members }: { projectId
                         <label htmlFor={`mv-${t.id}`} className="sr-only">
                           Move {t.projectKey}-{t.number} to column
                         </label>
-                        <Select
-                          id={`mv-${t.id}`}
-                          className="h-7 text-[12px]"
-                          value={t.status}
-                          onChange={(e) => void move(t.id, e.target.value, null)}
-                        >
+                        <Select id={`mv-${t.id}`} className="h-7 text-[12px]" value={t.status} onChange={(e) => void move(t.id, e.target.value, null)}>
                           {BOARD_COLUMNS.map((s) => (
                             <option key={s} value={s}>
                               {TASK_STATUS_LABEL[s]}
                             </option>
                           ))}
                         </Select>
-                        <Button variant="ghost" size="sm" className="h-7 px-1.5" aria-label={`Move ${t.projectKey}-${t.number} up`} disabled={i === 0} onClick={() => moveWithinColumn(t, -1)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-1.5"
+                          aria-label={`Move ${t.projectKey}-${t.number} up`}
+                          disabled={i === 0}
+                          onClick={() => moveWithinColumn(t, -1)}
+                        >
                           <ArrowUp className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 px-1.5" aria-label={`Move ${t.projectKey}-${t.number} down`} disabled={i === col.length - 1} onClick={() => moveWithinColumn(t, 1)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-1.5"
+                          aria-label={`Move ${t.projectKey}-${t.number} down`}
+                          disabled={i === col.length - 1}
+                          onClick={() => moveWithinColumn(t, 1)}
+                        >
                           <ArrowDown className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     )}
                   </li>
                 ))}
-                {col.length === 0 && <li className="rounded border border-dashed border-slate-300 px-2 py-4 text-center text-[12px] text-slate-500">{canEdit ? "Drop tasks here" : "No tasks"}</li>}
+                {col.length === 0 && (
+                  <li className="rounded border border-dashed border-slate-300 px-2 py-4 text-center text-[12px] text-slate-500">{canEdit ? "Drop tasks here" : "No tasks"}</li>
+                )}
               </ol>
             </section>
           );

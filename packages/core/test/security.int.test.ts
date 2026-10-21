@@ -22,7 +22,10 @@ describe("SEC-01 organization comes from the session, never the body", () => {
     const ctx = await A.users.admin.ctx();
     const site = await createSite(db, ctx, { code: "FORGE", name: "Forged attempt", state: "VA", timezone: "America/New_York", organizationId: B.org.id });
     expect(site!.organizationId).toBe(A.org.id);
-    const inB = await db.select().from(sites).where(and(eq(sites.organizationId, B.org.id), eq(sites.code, "FORGE")));
+    const inB = await db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.organizationId, B.org.id), eq(sites.code, "FORGE")));
     expect(inB).toHaveLength(0);
   });
 });
@@ -168,10 +171,17 @@ describe("role escalation", () => {
 describe("invites", () => {
   it("invite → accept creates an active member with the granted scoped role; token is single-use", async () => {
     const admin = await A.users.admin.ctx();
-    const inv = await createInvite(db, admin, { email: `New.Hire-${A.suffix}@Test.Example`, displayName: "New Hire", grants: [{ roleId: A.roleIds.scheduler!, siteId: A.sites.s2.id }] });
+    const inv = await createInvite(db, admin, {
+      email: `New.Hire-${A.suffix}@Test.Example`,
+      displayName: "New Hire",
+      grants: [{ roleId: A.roleIds.scheduler!, siteId: A.sites.s2.id }],
+    });
     expect(inv.token.length).toBeGreaterThan(30);
     await acceptInvite(db, { token: inv.token, password: "a-long-synthetic-password" }, async () => "hash");
-    await expectAppError(acceptInvite(db, { token: inv.token, password: "a-long-synthetic-password" }, async () => "hash"), "INVITE_INVALID");
+    await expectAppError(
+      acceptInvite(db, { token: inv.token, password: "a-long-synthetic-password" }, async () => "hash"),
+      "INVITE_INVALID",
+    );
     const members = await listMembers(db, admin);
     const nh = members.find((m) => m.email === `new.hire-${A.suffix}@test.example`)!;
     expect(nh.status).toBe("ACTIVE");
@@ -179,7 +189,10 @@ describe("invites", () => {
   });
 
   it("an unknown token is rejected without detail", async () => {
-    await expectAppError(acceptInvite(db, { token: "x".repeat(43), password: "a-long-synthetic-password" }, async () => "hash"), "INVITE_INVALID");
+    await expectAppError(
+      acceptInvite(db, { token: "x".repeat(43), password: "a-long-synthetic-password" }, async () => "hash"),
+      "INVITE_INVALID",
+    );
   });
 });
 

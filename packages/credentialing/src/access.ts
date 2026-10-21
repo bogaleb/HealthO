@@ -15,10 +15,7 @@ export function practitionerScopeWhere(ctx: AuthContext, perm: Permission = "cre
   const base = eq(practitioners.organizationId, ctx.organizationId);
   if (f.all) return base;
   if (!f.siteIds.length) return sql`false`;
-  return and(
-    base,
-    sql`exists (select 1 from ${practitionerSites} ps where ps.practitioner_id = ${qualified(practitioners.id)} and ps.site_id in ${f.siteIds})`,
-  )!;
+  return and(base, sql`exists (select 1 from ${practitionerSites} ps where ps.practitioner_id = ${qualified(practitioners.id)} and ps.site_id in ${f.siteIds})`)!;
 }
 
 export async function practitionerSiteIds(db: DbOrTx, ctx: AuthContext, practitionerId: string) {
@@ -35,7 +32,10 @@ export function canOnPractitioner(ctx: AuthContext, perm: Permission, siteIds: s
 
 /** Load a practitioner the caller may read (404 otherwise) and optionally require a further permission. */
 export async function loadPractitioner(db: Db, ctx: AuthContext, id: string, require?: { perm: Permission; action: string }) {
-  const [p] = await db.select().from(practitioners).where(and(practitionerScopeWhere(ctx), eq(practitioners.id, id)));
+  const [p] = await db
+    .select()
+    .from(practitioners)
+    .where(and(practitionerScopeWhere(ctx), eq(practitioners.id, id)));
   if (!p) throw notFound("Provider");
   const siteIds = await practitionerSiteIds(db, ctx, id);
   if (require && !canOnPractitioner(ctx, require.perm, siteIds)) {
@@ -49,4 +49,3 @@ export async function dualControlEnabled(db: DbOrTx, organizationId: string) {
   const [o] = await db.select({ settings: organizations.settings }).from(organizations).where(eq(organizations.id, organizationId));
   return (o?.settings as { dualControl?: boolean } | undefined)?.dualControl !== false;
 }
-

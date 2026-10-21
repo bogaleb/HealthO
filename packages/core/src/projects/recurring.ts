@@ -15,10 +15,7 @@ export function occurrencesBetween(def: Pick<Def, "cadence" | "weekday" | "month
   const out: string[] = [];
   let d = after && after >= def.startOn ? addDays(after, 1) : def.startOn;
   while (d <= through && out.length < cap) {
-    const matches =
-      def.cadence === "DAILY" ||
-      (def.cadence === "WEEKLY" && weekdayOf(d) === def.weekday) ||
-      (def.cadence === "MONTHLY" && Number(d.slice(8, 10)) === def.monthDay);
+    const matches = def.cadence === "DAILY" || (def.cadence === "WEEKLY" && weekdayOf(d) === def.weekday) || (def.cadence === "MONTHLY" && Number(d.slice(8, 10)) === def.monthDay);
     if (matches) out.push(d);
     d = addDays(d, 1);
   }
@@ -105,8 +102,17 @@ export async function generateRecurringTasks(db: Db, opts: { organizationId?: st
           .returning({ id: tasks.id });
         n += ins.length;
       }
-      if (dates.length) await tx.update(recurringTaskDefinitions).set({ lastGeneratedOn: dates[dates.length - 1] }).where(eq(recurringTaskDefinitions.id, def.id));
-      if (n) await audit(tx, { system: "recurring.generate", organizationId: def.organizationId }, { action: "recurring.generate", resourceType: "recurring_task_definition", resourceId: def.id, metadata: { created: n } });
+      if (dates.length)
+        await tx
+          .update(recurringTaskDefinitions)
+          .set({ lastGeneratedOn: dates[dates.length - 1] })
+          .where(eq(recurringTaskDefinitions.id, def.id));
+      if (n)
+        await audit(
+          tx,
+          { system: "recurring.generate", organizationId: def.organizationId },
+          { action: "recurring.generate", resourceType: "recurring_task_definition", resourceId: def.id, metadata: { created: n } },
+        );
       return n;
     });
   }

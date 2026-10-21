@@ -92,7 +92,10 @@ test("PROJ-02: creating a dependency cycle is rejected in the UI", async ({ page
   const drawer = page.getByRole("dialog");
   await drawer.getByRole("button", { name: "Link task" }).click();
   await drawer.getByLabel("Search tasks by title or number").fill("follow-up worklist");
-  await drawer.getByRole("list", { name: "Matching tasks" }).getByRole("button", { name: /BILL-3 Build follow-up worklist/ }).click();
+  await drawer
+    .getByRole("list", { name: "Matching tasks" })
+    .getByRole("button", { name: /BILL-3 Build follow-up worklist/ })
+    .click();
   await expect(drawer.locator(ALERT)).toContainText("cycle");
 });
 

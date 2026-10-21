@@ -38,7 +38,8 @@ export function FormDialog({
   children?: ReactNode;
 }) {
   const router = useRouter();
-  const init = (): Values => Object.fromEntries(fields.map((f) => [f.name, f.type === "checkbox" ? (f.defaultValue ?? false) : f.type === "multi" ? (f.defaultValue ?? []) : (f.defaultValue ?? "")]));
+  const init = (): Values =>
+    Object.fromEntries(fields.map((f) => [f.name, f.type === "checkbox" ? (f.defaultValue ?? false) : f.type === "multi" ? (f.defaultValue ?? []) : (f.defaultValue ?? "")]));
   const [open, setOpen] = useState(false);
   const [v, setV] = useState<Values>(init);
   const [busy, setBusy] = useState(false);
@@ -115,7 +116,9 @@ export function FormDialog({
                           <input
                             type="checkbox"
                             checked={(v[f.name] as string[]).includes(o.value)}
-                            onChange={(e) => setV({ ...v, [f.name]: e.target.checked ? [...(v[f.name] as string[]), o.value] : (v[f.name] as string[]).filter((x) => x !== o.value) })}
+                            onChange={(e) =>
+                              setV({ ...v, [f.name]: e.target.checked ? [...(v[f.name] as string[]), o.value] : (v[f.name] as string[]).filter((x) => x !== o.value) })
+                            }
                           />
                           {o.label}
                         </label>
@@ -125,7 +128,14 @@ export function FormDialog({
                   </fieldset>
                 );
               return (
-                <Field key={f.name} label={f.label + ("required" in f && f.required ? " *" : "")} htmlFor={id(f.name)} hint={f.hint} error={fe[f.name]} className={wide ? "col-span-2" : undefined}>
+                <Field
+                  key={f.name}
+                  label={f.label + ("required" in f && f.required ? " *" : "")}
+                  htmlFor={id(f.name)}
+                  hint={f.hint}
+                  error={fe[f.name]}
+                  className={wide ? "col-span-2" : undefined}
+                >
                   {f.type === "select" ? (
                     <Select id={id(f.name)} value={v[f.name] as string} required={f.required} onChange={(e) => setV({ ...v, [f.name]: e.target.value })}>
                       {f.allowEmpty !== undefined && <option value="">{f.allowEmpty}</option>}

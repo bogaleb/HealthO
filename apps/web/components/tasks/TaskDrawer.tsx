@@ -72,7 +72,9 @@ function DependencyPicker({ taskId, onAdd }: { taskId: string; onAdd: (id: strin
   useEffect(() => {
     if (q.trim().length < 2) return setResults([]);
     const t = setTimeout(() => {
-      apiFetch<typeof results>(`/api/v1/tasks/search?q=${encodeURIComponent(q)}&exclude=${taskId}`).then(setResults).catch(() => setResults([]));
+      apiFetch<typeof results>(`/api/v1/tasks/search?q=${encodeURIComponent(q)}&exclude=${taskId}`)
+        .then(setResults)
+        .catch(() => setResults([]));
     }, 200);
     return () => clearTimeout(t);
   }, [q, taskId]);
@@ -110,7 +112,19 @@ function DependencyPicker({ taskId, onAdd }: { taskId: string; onAdd: (id: strin
   );
 }
 
-export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: { taskId: string | null; members: Member[]; onClose: () => void; onChanged: () => void; onOpenTask: (id: string) => void }) {
+export function TaskDrawer({
+  taskId,
+  members,
+  onClose,
+  onChanged,
+  onOpenTask,
+}: {
+  taskId: string | null;
+  members: Member[];
+  onClose: () => void;
+  onChanged: () => void;
+  onOpenTask: (id: string) => void;
+}) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +190,11 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
       form.ownerUserId !== (t.ownerUserId ?? "") ||
       form.dueDate !== (t.dueDate ?? "") ||
       form.labels !== t.labels.join(", ") ||
-      form.collaboratorUserIds.slice().sort().join() !== detail!.collaborators.map((c) => c.userId).sort().join());
+      form.collaboratorUserIds.slice().sort().join() !==
+        detail!.collaborators
+          .map((c) => c.userId)
+          .sort()
+          .join());
 
   return (
     <>
@@ -231,7 +249,8 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
               {t.completedAt && <span className="text-xs text-slate-500">Completed {formatInstant(t.completedAt, t.dueTimezone)}</span>}
             </section>
 
-            <form method="post"
+            <form
+              method="post"
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -354,7 +373,8 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
                 ))}
               </ul>
               {canEdit && (
-                <form method="post"
+                <form
+                  method="post"
                   className="mt-2 flex gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -391,13 +411,18 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
                   ))}
                 </ul>
                 {canEdit && (
-                  <form method="post"
+                  <form
+                    method="post"
                     className="mt-2 flex gap-2"
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!subTitle.trim()) return;
                       void run("sub", async () => {
-                        await apiFetch(`/api/v1/tasks`, { method: "POST", body: { projectId: t.projectId, title: subTitle, parentTaskId: t.id }, headers: { "idempotency-key": crypto.randomUUID() } });
+                        await apiFetch(`/api/v1/tasks`, {
+                          method: "POST",
+                          body: { projectId: t.projectId, title: subTitle, parentTaskId: t.id },
+                          headers: { "idempotency-key": crypto.randomUUID() },
+                        });
                         setSubTitle("");
                       });
                     }}
@@ -432,7 +457,10 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
                 <p className="mt-1 text-[13px] text-slate-500">No linked tasks.</p>
               ) : (
                 <ul className="mt-2 space-y-1 text-[13.5px]">
-                  {[...detail.blockedBy.map((d) => ({ ...d, rel: d.kind === "BLOCKS" ? "Blocked by" : "Related to" })), ...detail.blocking.map((d) => ({ ...d, rel: d.kind === "BLOCKS" ? "Blocks" : "Related to" }))].map((d) => (
+                  {[
+                    ...detail.blockedBy.map((d) => ({ ...d, rel: d.kind === "BLOCKS" ? "Blocked by" : "Related to" })),
+                    ...detail.blocking.map((d) => ({ ...d, rel: d.kind === "BLOCKS" ? "Blocks" : "Related to" })),
+                  ].map((d) => (
                     <li key={d.dependencyId + d.rel} className="flex items-center gap-2">
                       <span className="w-20 shrink-0 text-xs text-slate-500">{d.rel}</span>
                       <button type="button" className="min-w-0 truncate text-left text-teal-800 hover:underline" onClick={() => onOpenTask(d.id)}>
@@ -472,7 +500,8 @@ export function TaskDrawer({ taskId, members, onClose, onChanged, onOpenTask }: 
                 ))}
               </ul>
               {canEdit && (
-                <form method="post"
+                <form
+                  method="post"
                   className="mt-2 space-y-2"
                   onSubmit={(e) => {
                     e.preventDefault();

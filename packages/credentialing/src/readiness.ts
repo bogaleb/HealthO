@@ -89,7 +89,8 @@ function appliesUnder(a: AuthorityFact, rule: RuleFact): boolean {
 }
 
 function result(partial: Omit<LicenseResult, "canConfirm" | "decision"> & { decision?: Decision }): LicenseResult {
-  const decision = partial.decision ?? (partial.status === "VERIFIED_ELIGIBLE" ? "ALLOW" : partial.status === "EXPIRED" || partial.status === "VERIFIED_INELIGIBLE" ? "BLOCK" : "REVIEW");
+  const decision =
+    partial.decision ?? (partial.status === "VERIFIED_ELIGIBLE" ? "ALLOW" : partial.status === "EXPIRED" || partial.status === "VERIFIED_INELIGIBLE" ? "BLOCK" : "REVIEW");
   return { ...partial, decision, canConfirm: decision === "ALLOW" };
 }
 
@@ -104,7 +105,12 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
       ...base,
       status: "VERIFIED_INELIGIBLE",
       evidenceIds: hardStops.map((a) => a.id),
-      reasons: hardStops.map((a) => ({ code: `AUTHORITY_${a.status}`, message: `Provider's ${ctx.jurisdiction} authority is ${a.status.toLowerCase()}.`, severity: "BLOCK", evidenceId: a.id })),
+      reasons: hardStops.map((a) => ({
+        code: `AUTHORITY_${a.status}`,
+        message: `Provider's ${ctx.jurisdiction} authority is ${a.status.toLowerCase()}.`,
+        severity: "BLOCK",
+        evidenceId: a.id,
+      })),
     });
   }
 
@@ -124,7 +130,16 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
       status: "POLICY_UNAVAILABLE",
       reasons: [
         { code: "POLICY_UNAVAILABLE", message: `No compliance-approved rule covers ${ctx.profession} · ${ctx.jurisdiction} · ${ctx.modality} on ${ctx.date}.`, severity: "REVIEW" },
-        ...(claim ? [{ code: "COMPACT_CLAIM_NOT_AUTHORITY", message: "A compact membership claim is recorded but is not an issued authority.", severity: "INFO" as const, evidenceId: claim.id }] : []),
+        ...(claim
+          ? [
+              {
+                code: "COMPACT_CLAIM_NOT_AUTHORITY",
+                message: "A compact membership claim is recorded but is not an issued authority.",
+                severity: "INFO" as const,
+                evidenceId: claim.id,
+              },
+            ]
+          : []),
       ],
     });
   }
@@ -133,14 +148,23 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
   const ruleInfo = { ruleId: rule.id, ruleLabel: `${rule.ruleKey} v${rule.ruleVersion}`, isDemoRule: rule.isDemo };
   if (rule.isDemo) reasons.push({ code: "DEMO_RULE", message: "DEMO SYNTHETIC POLICY — NOT VERIFIED LAW.", severity: "INFO" });
   if (rule.nextReviewOn < ctx.asOf) {
-    return result({ ...base, ...ruleInfo, status: "POLICY_UNAVAILABLE", reasons: [...reasons, { code: "POLICY_REVIEW_EXPIRED", message: `Rule review was due ${rule.nextReviewOn}; booking on hold until re-reviewed.`, severity: "REVIEW" }] });
+    return result({
+      ...base,
+      ...ruleInfo,
+      status: "POLICY_UNAVAILABLE",
+      reasons: [...reasons, { code: "POLICY_REVIEW_EXPIRED", message: `Rule review was due ${rule.nextReviewOn}; booking on hold until re-reviewed.`, severity: "REVIEW" }],
+    });
   }
 
   if (rule.providerStates.length) {
     if (!ctx.providerPhysicalState) {
       reasons.push({ code: "PROVIDER_LOCATION_UNKNOWN", message: "Provider's physical location is required by this rule but not recorded.", severity: "REVIEW" });
     } else if (!rule.providerStates.includes(ctx.providerPhysicalState)) {
-      reasons.push({ code: "PROVIDER_LOCATION_UNAPPROVED", message: `Provider physically in ${ctx.providerPhysicalState}; rule permits ${rule.providerStates.join(", ")}.`, severity: "REVIEW" });
+      reasons.push({
+        code: "PROVIDER_LOCATION_UNAPPROVED",
+        message: `Provider physically in ${ctx.providerPhysicalState}; rule permits ${rule.providerStates.join(", ")}.`,
+        severity: "REVIEW",
+      });
     }
   }
 
@@ -159,7 +183,12 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
       validThrough: good.some((a) => a.expiresOn === null) ? null : through,
       reasons: [
         ...reasons,
-        ...good.map((a) => ({ code: "AUTHORITY_VERIFIED", message: `${a.authorityType} (${a.jurisdiction}) verified${a.expiresOn ? ` through ${a.expiresOn}` : ""}.`, severity: "INFO" as const, evidenceId: a.id })),
+        ...good.map((a) => ({
+          code: "AUTHORITY_VERIFIED",
+          message: `${a.authorityType} (${a.jurisdiction}) verified${a.expiresOn ? ` through ${a.expiresOn}` : ""}.`,
+          severity: "INFO" as const,
+          evidenceId: a.id,
+        })),
       ],
     });
   }
@@ -171,12 +200,22 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
       ...ruleInfo,
       status: "EXPIRED",
       evidenceIds: expired.map((a) => a.id),
-      reasons: [...reasons, ...expired.map((a) => ({ code: "AUTHORITY_EXPIRED", message: `${a.authorityType} (${a.jurisdiction}) expired ${a.expiresOn}.`, severity: "BLOCK" as const, evidenceId: a.id }))],
+      reasons: [
+        ...reasons,
+        ...expired.map((a) => ({
+          code: "AUTHORITY_EXPIRED",
+          message: `${a.authorityType} (${a.jurisdiction}) expired ${a.expiresOn}.`,
+          severity: "BLOCK" as const,
+          evidenceId: a.id,
+        })),
+      ],
     });
   }
   const notYet = applicable.filter((a) => a.status === "VERIFIED" && a.effectiveOn > ctx.date);
   const pending = applicable.filter((a) => a.status === "DRAFT" || a.status === "SUBMITTED");
-  const wrongHome = sameProfession.filter((a) => (a.authorityType === "MULTISTATE_LICENSE" || a.authorityType === "APIT") && rule.authorizationBasis.includes(a.authorityType) && !appliesUnder(a, rule));
+  const wrongHome = sameProfession.filter(
+    (a) => (a.authorityType === "MULTISTATE_LICENSE" || a.authorityType === "APIT") && rule.authorizationBasis.includes(a.authorityType) && !appliesUnder(a, rule),
+  );
   const otherProfession = authorities.filter((a) => a.profession !== ctx.profession && a.jurisdiction === ctx.jurisdiction && a.status === "VERIFIED");
   return result({
     ...base,
@@ -185,11 +224,33 @@ export function evaluateLicenseReadiness(ctx: LicenseContext, rules: RuleFact[],
     evidenceIds: [...pending, ...notYet].map((a) => a.id),
     reasons: [
       ...reasons,
-      ...pending.map((a) => ({ code: "AUTHORITY_NOT_VERIFIED", message: `${a.authorityType} (${a.jurisdiction}) is ${a.status.toLowerCase()} — not yet verified.`, severity: "REVIEW" as const, evidenceId: a.id })),
-      ...notYet.map((a) => ({ code: "AUTHORITY_NOT_YET_EFFECTIVE", message: `${a.authorityType} (${a.jurisdiction}) effective ${a.effectiveOn}.`, severity: "REVIEW" as const, evidenceId: a.id })),
-      ...wrongHome.map((a) => ({ code: "HOME_STATE_NOT_ACCEPTED", message: `${a.authorityType} home state ${a.homeState} is not accepted by this rule.`, severity: "REVIEW" as const, evidenceId: a.id })),
-      ...otherProfession.map((a) => ({ code: "DIFFERENT_PROFESSION_AUTHORITY", message: `A verified ${a.profession} authority exists but does not apply to ${ctx.profession}.`, severity: "INFO" as const, evidenceId: a.id })),
-      ...(pending.length || notYet.length ? [] : [{ code: "AUTHORITY_MISSING", message: `No ${ctx.profession} authority accepted for ${ctx.jurisdiction} by this rule is on file.`, severity: "REVIEW" as const }]),
+      ...pending.map((a) => ({
+        code: "AUTHORITY_NOT_VERIFIED",
+        message: `${a.authorityType} (${a.jurisdiction}) is ${a.status.toLowerCase()} — not yet verified.`,
+        severity: "REVIEW" as const,
+        evidenceId: a.id,
+      })),
+      ...notYet.map((a) => ({
+        code: "AUTHORITY_NOT_YET_EFFECTIVE",
+        message: `${a.authorityType} (${a.jurisdiction}) effective ${a.effectiveOn}.`,
+        severity: "REVIEW" as const,
+        evidenceId: a.id,
+      })),
+      ...wrongHome.map((a) => ({
+        code: "HOME_STATE_NOT_ACCEPTED",
+        message: `${a.authorityType} home state ${a.homeState} is not accepted by this rule.`,
+        severity: "REVIEW" as const,
+        evidenceId: a.id,
+      })),
+      ...otherProfession.map((a) => ({
+        code: "DIFFERENT_PROFESSION_AUTHORITY",
+        message: `A verified ${a.profession} authority exists but does not apply to ${ctx.profession}.`,
+        severity: "INFO" as const,
+        evidenceId: a.id,
+      })),
+      ...(pending.length || notYet.length
+        ? []
+        : [{ code: "AUTHORITY_MISSING", message: `No ${ctx.profession} authority accepted for ${ctx.jurisdiction} by this rule is on file.`, severity: "REVIEW" as const }]),
     ],
   });
 }
@@ -218,7 +279,12 @@ export interface PayerResult {
 }
 
 export function evaluatePayerReadiness(ctx: { practitionerId: string; siteId: string; date: string }, plan: PlanFact, enrollments: EnrollmentFact[]): PayerResult {
-  if (!plan.requiresEnrollment) return { status: "NOT_REQUIRED", reasons: [{ code: "PAYER_ENROLLMENT_NOT_REQUIRED", message: "Plan does not require provider enrollment.", severity: "INFO" }], evidenceIds: [] };
+  if (!plan.requiresEnrollment)
+    return {
+      status: "NOT_REQUIRED",
+      reasons: [{ code: "PAYER_ENROLLMENT_NOT_REQUIRED", message: "Plan does not require provider enrollment.", severity: "INFO" }],
+      evidenceIds: [],
+    };
   // Site-specific: an approval at another site never counts here.
   const e = enrollments.find((x) => x.practitionerId === ctx.practitionerId && x.payerPlanId === plan.id && x.siteId === ctx.siteId);
   if (!e) {
@@ -226,15 +292,44 @@ export function evaluatePayerReadiness(ctx: { practitionerId: string; siteId: st
     return {
       status: "NOT_READY",
       evidenceIds: [],
-      reasons: [{ code: "PAYER_NOT_ENROLLED", message: elsewhere ? "Approved at a different site only — not at this site." : "No enrollment on file for this plan at this site.", severity: "BLOCK" }],
+      reasons: [
+        {
+          code: "PAYER_NOT_ENROLLED",
+          message: elsewhere ? "Approved at a different site only — not at this site." : "No enrollment on file for this plan at this site.",
+          severity: "BLOCK",
+        },
+      ],
     };
   }
   if (e.status === "APPROVED") {
-    if (!e.verifiedAt) return { status: "UNKNOWN", evidenceIds: [e.id], reasons: [{ code: "PAYER_APPROVAL_UNVERIFIED", message: "Approval recorded but not verified by an approver.", severity: "REVIEW", evidenceId: e.id }] };
-    if (e.effectiveOn && e.effectiveOn > ctx.date) return { status: "NOT_READY", evidenceIds: [e.id], reasons: [{ code: "PAYER_NOT_YET_EFFECTIVE", message: `Participation effective ${e.effectiveOn}.`, severity: "BLOCK", evidenceId: e.id }] };
-    if (e.terminatedOn && e.terminatedOn <= ctx.date) return { status: "NOT_READY", evidenceIds: [e.id], reasons: [{ code: "PAYER_TERMINATED", message: `Participation ended ${e.terminatedOn}.`, severity: "BLOCK", evidenceId: e.id }] };
-    return { status: "READY", evidenceIds: [e.id], reasons: [{ code: "PAYER_READY", message: `Participating since ${e.effectiveOn} (approval confirmed ${e.approvedOn}).`, severity: "INFO", evidenceId: e.id }] };
+    if (!e.verifiedAt)
+      return {
+        status: "UNKNOWN",
+        evidenceIds: [e.id],
+        reasons: [{ code: "PAYER_APPROVAL_UNVERIFIED", message: "Approval recorded but not verified by an approver.", severity: "REVIEW", evidenceId: e.id }],
+      };
+    if (e.effectiveOn && e.effectiveOn > ctx.date)
+      return {
+        status: "NOT_READY",
+        evidenceIds: [e.id],
+        reasons: [{ code: "PAYER_NOT_YET_EFFECTIVE", message: `Participation effective ${e.effectiveOn}.`, severity: "BLOCK", evidenceId: e.id }],
+      };
+    if (e.terminatedOn && e.terminatedOn <= ctx.date)
+      return {
+        status: "NOT_READY",
+        evidenceIds: [e.id],
+        reasons: [{ code: "PAYER_TERMINATED", message: `Participation ended ${e.terminatedOn}.`, severity: "BLOCK", evidenceId: e.id }],
+      };
+    return {
+      status: "READY",
+      evidenceIds: [e.id],
+      reasons: [{ code: "PAYER_READY", message: `Participating since ${e.effectiveOn} (approval confirmed ${e.approvedOn}).`, severity: "INFO", evidenceId: e.id }],
+    };
   }
   const code = e.status === "TERMINATED" ? "PAYER_TERMINATED" : e.status === "DENIED" ? "PAYER_DENIED" : "PAYER_PENDING";
-  return { status: "NOT_READY", evidenceIds: [e.id], reasons: [{ code, message: `Enrollment status: ${e.status.replace("_", " ").toLowerCase()}.`, severity: "BLOCK", evidenceId: e.id }] };
+  return {
+    status: "NOT_READY",
+    evidenceIds: [e.id],
+    reasons: [{ code, message: `Enrollment status: ${e.status.replace("_", " ").toLowerCase()}.`, severity: "BLOCK", evidenceId: e.id }],
+  };
 }

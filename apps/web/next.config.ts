@@ -26,7 +26,6 @@ const config: NextConfig = {
   transpilePackages: ["@projectos/ui", "@projectos/shared", "@projectos/core", "@projectos/auth", "@projectos/db", "@projectos/credentialing"],
   serverExternalPackages: ["postgres"],
   typedRoutes: false,
-  eslint: { ignoreDuringBuilds: true }, // lint runs from the repo root (pnpm lint)
   async headers() {
     return [
       {

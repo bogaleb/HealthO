@@ -22,7 +22,10 @@ export async function listRoles(db: DbOrTx, ctx: AuthContext): Promise<RoleWithP
   const rs = await db.select().from(roles).where(eq(roles.organizationId, ctx.organizationId)).orderBy(asc(roles.name));
   if (!rs.length) return [];
   const ids = rs.map((r) => r.id);
-  const perms = await db.select().from(rolePermissions).where(and(eq(rolePermissions.organizationId, ctx.organizationId), inArray(rolePermissions.roleId, ids)));
+  const perms = await db
+    .select()
+    .from(rolePermissions)
+    .where(and(eq(rolePermissions.organizationId, ctx.organizationId), inArray(rolePermissions.roleId, ids)));
   const grants = await db
     .select({ roleId: roleGrants.roleId, membershipId: roleGrants.membershipId })
     .from(roleGrants)
@@ -34,7 +37,10 @@ export async function listRoles(db: DbOrTx, ctx: AuthContext): Promise<RoleWithP
     description: r.description,
     isSystem: r.isSystem,
     version: r.version,
-    permissions: perms.filter((p) => p.roleId === r.id && isPermission(p.permission)).map((p) => p.permission as Permission).sort(),
+    permissions: perms
+      .filter((p) => p.roleId === r.id && isPermission(p.permission))
+      .map((p) => p.permission as Permission)
+      .sort(),
     memberCount: new Set(grants.filter((g) => g.roleId === r.id).map((g) => g.membershipId)).size,
   }));
 }
@@ -43,7 +49,11 @@ export async function listRoles(db: DbOrTx, ctx: AuthContext): Promise<RoleWithP
 export function assertNoEscalation(ctx: AuthContext, perms: Iterable<Permission>) {
   const missing = [...perms].filter((p) => !hasOrgWide(ctx, p));
   if (missing.length) {
-    throw new AppError("ROLE_ESCALATION", "You cannot grant permissions you do not hold organization-wide.", missing.map((p) => ({ code: "NOT_HELD", field: p })));
+    throw new AppError(
+      "ROLE_ESCALATION",
+      "You cannot grant permissions you do not hold organization-wide.",
+      missing.map((p) => ({ code: "NOT_HELD", field: p })),
+    );
   }
 }
 
@@ -78,7 +88,10 @@ export async function createRole(db: Db, ctx: AuthContext, input: unknown) {
 export async function updateRole(db: Db, ctx: AuthContext, id: string, input: unknown) {
   await authorize(db, ctx, "org.manage", {}, { action: "role.update", resourceType: "role", resourceId: id });
   const data = parse(roleUpdate, input);
-  const [existing] = await db.select().from(roles).where(and(eq(roles.organizationId, ctx.organizationId), eq(roles.id, id)));
+  const [existing] = await db
+    .select()
+    .from(roles)
+    .where(and(eq(roles.organizationId, ctx.organizationId), eq(roles.id, id)));
   if (!existing) throw notFound("Role");
   if (existing.isSystem) throw new AppError("FORBIDDEN", "Built-in roles cannot be edited. Create a custom role instead.");
   if (data.permissions) assertNoEscalation(ctx, data.permissions);
@@ -107,7 +120,12 @@ export async function updateRole(db: Db, ctx: AuthContext, id: string, input: un
         await tx.insert(rolePermissions).values([...new Set(data.permissions)].map((p) => ({ organizationId: ctx.organizationId, roleId: id, permission: p })));
       }
     }
-    await audit(tx, ctx, { action: "role.update", resourceType: "role", resourceId: id, metadata: { fields: Object.keys(data).filter((k) => k !== "version"), permissions: data.permissions } });
+    await audit(tx, ctx, {
+      action: "role.update",
+      resourceType: "role",
+      resourceId: id,
+      metadata: { fields: Object.keys(data).filter((k) => k !== "version"), permissions: data.permissions },
+    });
     return row;
   });
 }

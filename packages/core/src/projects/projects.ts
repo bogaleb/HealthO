@@ -41,7 +41,10 @@ export async function listProjects(db: Db, ctx: AuthContext, opts: { status?: st
 
 /** Loads a project the caller may read; 404 (not 403) when out of scope to avoid enumeration. */
 export async function getProject(db: Db, ctx: AuthContext, id: string) {
-  const [row] = await db.select().from(projects).where(and(projectScopeWhere(ctx), eq(projects.id, id)));
+  const [row] = await db
+    .select()
+    .from(projects)
+    .where(and(projectScopeWhere(ctx), eq(projects.id, id)));
   if (!row) throw notFound("Project");
   return row;
 }
@@ -92,7 +95,10 @@ export async function createProject(db: Db, ctx: AuthContext, input: unknown) {
   await assertMember(db, ctx, data.ownerUserId);
   let template: typeof projectTemplates.$inferSelect | undefined;
   if (data.templateId) {
-    [template] = await db.select().from(projectTemplates).where(and(eq(projectTemplates.organizationId, ctx.organizationId), eq(projectTemplates.id, data.templateId)));
+    [template] = await db
+      .select()
+      .from(projectTemplates)
+      .where(and(eq(projectTemplates.organizationId, ctx.organizationId), eq(projectTemplates.id, data.templateId)));
     if (!template) throw new AppError("VALIDATION_FAILED", "Unknown template.", [{ code: "UNKNOWN_TEMPLATE", field: "templateId" }]);
   }
   if (data.startDate && data.dueDate && data.dueDate < data.startDate) {
@@ -145,7 +151,13 @@ export async function createProject(db: Db, ctx: AuthContext, input: unknown) {
 
 export async function updateProject(db: Db, ctx: AuthContext, id: string, input: unknown) {
   const existing = await getProject(db, ctx, id);
-  await authorize(db, ctx, "projects.edit", { siteId: existing.siteId, departmentId: existing.departmentId }, { action: "project.update", resourceType: "project", resourceId: id });
+  await authorize(
+    db,
+    ctx,
+    "projects.edit",
+    { siteId: existing.siteId, departmentId: existing.departmentId },
+    { action: "project.update", resourceType: "project", resourceId: id },
+  );
   const { version, ...patch } = parse(projectUpdate, input);
   await assertMember(db, ctx, patch.ownerUserId);
   try {
@@ -170,7 +182,10 @@ export async function createMilestone(db: Db, ctx: AuthContext, projectId: strin
   await authorize(db, ctx, "projects.edit", { siteId: p.siteId, departmentId: p.departmentId });
   const data = parse(milestoneCreate, input);
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(milestones).values({ ...data, organizationId: ctx.organizationId, projectId }).returning();
+    const [row] = await tx
+      .insert(milestones)
+      .values({ ...data, organizationId: ctx.organizationId, projectId })
+      .returning();
     await audit(tx, ctx, { action: "milestone.create", resourceType: "milestone", resourceId: row!.id, metadata: { projectId } });
     return row!;
   });
@@ -178,7 +193,13 @@ export async function createMilestone(db: Db, ctx: AuthContext, projectId: strin
 
 export async function listTemplates(db: Db, ctx: AuthContext) {
   return db
-    .select({ id: projectTemplates.id, name: projectTemplates.name, description: projectTemplates.description, departmentId: projectTemplates.departmentId, tasks: projectTemplates.tasks })
+    .select({
+      id: projectTemplates.id,
+      name: projectTemplates.name,
+      description: projectTemplates.description,
+      departmentId: projectTemplates.departmentId,
+      tasks: projectTemplates.tasks,
+    })
     .from(projectTemplates)
     .where(eq(projectTemplates.organizationId, ctx.organizationId))
     .orderBy(asc(projectTemplates.name));
@@ -187,4 +208,3 @@ export async function listTemplates(db: Db, ctx: AuthContext) {
 export async function recentProjects(db: Db, ctx: AuthContext, limit = 5) {
   return db.select().from(projects).where(projectScopeWhere(ctx)).orderBy(desc(projects.updatedAt)).limit(limit);
 }
-

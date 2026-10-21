@@ -64,7 +64,13 @@ describe("license readiness — fixture table (DEMO policy)", () => {
       "AUTHORITY_MISSING",
     ],
     ["C/LIC-03: DC has no approved rule", ctx({ jurisdiction: "DC" }), [auth({})], "POLICY_UNAVAILABLE", "REVIEW", "POLICY_UNAVAILABLE"],
-    ["D/LIC-05: RN multistate, home VA accepted for MD", ctx({ profession: "RN", jurisdiction: "MD" }), [auth({ profession: "RN", authorityType: "MULTISTATE_LICENSE", homeState: "VA" })], "VERIFIED_ELIGIBLE", "ALLOW"],
+    [
+      "D/LIC-05: RN multistate, home VA accepted for MD",
+      ctx({ profession: "RN", jurisdiction: "MD" }),
+      [auth({ profession: "RN", authorityType: "MULTISTATE_LICENSE", homeState: "VA" })],
+      "VERIFIED_ELIGIBLE",
+      "ALLOW",
+    ],
     [
       "D: RN multistate with home state not accepted",
       ctx({ profession: "RN", jurisdiction: "MD" }),
@@ -159,7 +165,17 @@ describe("license readiness — fixture table (DEMO policy)", () => {
 
 describe("payer readiness — independent of licensure (F / LIC-10 / CRED-02)", () => {
   const plan = { id: "plan-y", requiresEnrollment: true };
-  const approvedSite1: EnrollmentFact = { id: "e1", practitionerId: "p", payerPlanId: "plan-y", siteId: "site-1", status: "APPROVED", approvedOn: "2026-09-15", effectiveOn: "2026-09-01", terminatedOn: null, verifiedAt: "2026-09-16T00:00:00Z" };
+  const approvedSite1: EnrollmentFact = {
+    id: "e1",
+    practitionerId: "p",
+    payerPlanId: "plan-y",
+    siteId: "site-1",
+    status: "APPROVED",
+    approvedOn: "2026-09-15",
+    effectiveOn: "2026-09-01",
+    terminatedOn: null,
+    verifiedAt: "2026-09-16T00:00:00Z",
+  };
   it("approved at Site 1 only → ready at Site 1, not ready at Site 2", () => {
     expect(evaluatePayerReadiness({ practitionerId: "p", siteId: "site-1", date: "2026-11-03" }, plan, [approvedSite1]).status).toBe("READY");
     const s2 = evaluatePayerReadiness({ practitionerId: "p", siteId: "site-2", date: "2026-11-03" }, plan, [approvedSite1]);

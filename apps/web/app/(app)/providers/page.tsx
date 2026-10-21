@@ -33,32 +33,54 @@ export default async function ProvidersPage({ searchParams }: { searchParams: Pr
       />
       <form method="get" className="mb-4 flex flex-wrap items-end gap-2" aria-label="Filter providers">
         <div>
-          <label htmlFor="pf-q" className="block text-xs font-medium text-slate-600">Name</label>
+          <label htmlFor="pf-q" className="block text-xs font-medium text-slate-600">
+            Name
+          </label>
           <input id="pf-q" name="q" defaultValue={filters.q} className={`${sel} w-48`} />
         </div>
         <div>
-          <label htmlFor="pf-prof" className="block text-xs font-medium text-slate-600">Profession</label>
+          <label htmlFor="pf-prof" className="block text-xs font-medium text-slate-600">
+            Profession
+          </label>
           <select id="pf-prof" name="profession" defaultValue={filters.profession ?? ""} className={sel}>
             <option value="">Any</option>
-            {PROFESSIONS.map((p) => <option key={p} value={p}>{PROFESSION_LABEL[p]}</option>)}
+            {PROFESSIONS.map((p) => (
+              <option key={p} value={p}>
+                {PROFESSION_LABEL[p]}
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label htmlFor="pf-state" className="block text-xs font-medium text-slate-600">Has authority in</label>
+          <label htmlFor="pf-state" className="block text-xs font-medium text-slate-600">
+            Has authority in
+          </label>
           <select id="pf-state" name="state" defaultValue={filters.state ?? ""} className={sel}>
             <option value="">Any state</option>
-            {US_JURISDICTIONS.map((j) => <option key={j}>{j}</option>)}
+            {US_JURISDICTIONS.map((j) => (
+              <option key={j}>{j}</option>
+            ))}
           </select>
         </div>
         <div>
-          <label htmlFor="pf-site" className="block text-xs font-medium text-slate-600">Site</label>
+          <label htmlFor="pf-site" className="block text-xs font-medium text-slate-600">
+            Site
+          </label>
           <select id="pf-site" name="siteId" defaultValue={filters.siteId ?? ""} className={sel}>
             <option value="">Any site</option>
-            {ref.sites.map((s) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
+            {ref.sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.code} — {s.name}
+              </option>
+            ))}
           </select>
         </div>
-        <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800">Apply</button>
-        <Link href="/providers" className="px-2 py-2 text-sm text-slate-600 hover:underline">Clear</Link>
+        <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800">
+          Apply
+        </button>
+        <Link href="/providers" className="px-2 py-2 text-sm text-slate-600 hover:underline">
+          Clear
+        </Link>
       </form>
       {rows.length === 0 ? (
         <EmptyState title="No providers match" description="Clear a filter, or add a provider." />
@@ -67,26 +89,48 @@ export default async function ProvidersPage({ searchParams }: { searchParams: Pr
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>
-                <th scope="col" className="px-3 py-2">Provider</th>
-                <th scope="col" className="px-3 py-2">Profession</th>
-                <th scope="col" className="px-3 py-2">Sites</th>
-                <th scope="col" className="px-3 py-2">Verified, unexpired authority</th>
-                <th scope="col" className="px-3 py-2">Alerts</th>
-                <th scope="col" className="px-3 py-2 text-right">Payer plans ready</th>
+                <th scope="col" className="px-3 py-2">
+                  Provider
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Profession
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Sites
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Verified, unexpired authority
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Alerts
+                </th>
+                <th scope="col" className="px-3 py-2 text-right">
+                  Payer plans ready
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2.5">
-                    <Link href={`/providers/${p.id}`} className="font-medium text-slate-900 hover:text-teal-800 hover:underline">{p.displayName}</Link>
+                    <Link href={`/providers/${p.id}`} className="font-medium text-slate-900 hover:text-teal-800 hover:underline">
+                      {p.displayName}
+                    </Link>
                     {p.physicalState && <div className="text-xs text-slate-500">Works from {p.physicalState}</div>}
                   </td>
                   <td className="px-3 py-2.5 text-slate-700">{PROFESSION_LABEL[p.profession as Profession]}</td>
                   <td className="px-3 py-2.5 text-slate-600">{p.siteCodes.join(", ") || "—"}</td>
                   <td className="px-3 py-2.5">
                     <div className="flex flex-wrap gap-1">
-                      {p.verifiedStates.length ? p.verifiedStates.map((s) => <Badge key={s} tone="green">{s}</Badge>) : <span className="text-xs text-slate-500">None</span>}
+                      {p.verifiedStates.length ? (
+                        p.verifiedStates.map((s) => (
+                          <Badge key={s} tone="green">
+                            {s}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-500">None</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-3 py-2.5">

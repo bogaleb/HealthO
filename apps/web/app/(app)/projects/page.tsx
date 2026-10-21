@@ -52,15 +52,33 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>
-                <th scope="col" className="px-3 py-2">Project</th>
-                <th scope="col" className="px-3 py-2">Department</th>
-                <th scope="col" className="px-3 py-2">Owner</th>
-                <th scope="col" className="px-3 py-2">Status</th>
-                <th scope="col" className="px-3 py-2">Health</th>
-                <th scope="col" className="px-3 py-2 text-right">Open</th>
-                <th scope="col" className="px-3 py-2 text-right">Overdue</th>
-                <th scope="col" className="px-3 py-2 text-right">Done</th>
-                <th scope="col" className="px-3 py-2">Due</th>
+                <th scope="col" className="px-3 py-2">
+                  Project
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Department
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Owner
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Health
+                </th>
+                <th scope="col" className="px-3 py-2 text-right">
+                  Open
+                </th>
+                <th scope="col" className="px-3 py-2 text-right">
+                  Overdue
+                </th>
+                <th scope="col" className="px-3 py-2 text-right">
+                  Done
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Due
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

@@ -56,7 +56,11 @@ export const CASE_STATUSES = ["OPEN", "IN_PROGRESS", "WAITING_EXTERNAL", "COMPLE
 export const practitionerCreate = z.object({
   displayName: text(120),
   profession: z.enum(PROFESSIONS),
-  npi: z.string().regex(/^\d{10}$/, "10 digits").nullable().optional(),
+  npi: z
+    .string()
+    .regex(/^\d{10}$/, "10 digits")
+    .nullable()
+    .optional(),
   physicalState: jurisdiction.nullable().optional(),
   telehealthCapable: z.boolean().default(false),
   languages: z.array(z.string().trim().min(2).max(30)).max(8).default([]),
@@ -74,14 +78,22 @@ export const authorityCreate = z
     /** Primary (home) state for multistate/APIT style authority. */
     homeState: jurisdiction.nullable().optional(),
     /** Only the last 4 characters are stored. */
-    licenseNumberLast4: z.string().trim().regex(/^[A-Za-z0-9]{1,4}$/, "Up to 4 letters/digits").nullable().optional(),
+    licenseNumberLast4: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9]{1,4}$/, "Up to 4 letters/digits")
+      .nullable()
+      .optional(),
     issuingAuthority: z.string().trim().max(200).nullable().optional(),
     effectiveOn: iso,
     expiresOn: iso.nullable().optional(),
     restrictions: z.string().trim().max(1000).nullable().optional(),
   })
   .refine((v) => !v.expiresOn || v.expiresOn >= v.effectiveOn, { message: "Expiration must be on or after the effective date", path: ["expiresOn"] })
-  .refine((v) => !["MULTISTATE_LICENSE", "APIT"].includes(v.authorityType) || !!v.homeState, { message: "Home state is required for multistate/APIT authority", path: ["homeState"] });
+  .refine((v) => !["MULTISTATE_LICENSE", "APIT"].includes(v.authorityType) || !!v.homeState, {
+    message: "Home state is required for multistate/APIT authority",
+    path: ["homeState"],
+  });
 
 export const authorityReview = z.object({
   version: z.number().int().positive(),
@@ -115,9 +127,31 @@ export const ruleCreate = z.object({
 export const ruleApprove = z.object({ reason: text(500) });
 export const ruleRetire = z.object({ reason: text(500) });
 
-export const payerCreate = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{2,16}$/), name: text(120) });
-export const planCreate = z.object({ payerId: uuid, code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{2,16}$/), name: text(120), requiresEnrollment: z.boolean().default(true) });
-export const enrollmentCreate = z.object({ practitionerId: uuid, payerPlanId: uuid, siteId: uuid, status: z.enum(ENROLLMENT_STATUSES).default("NOT_STARTED"), submittedOn: iso.nullable().optional() });
+export const payerCreate = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{2,16}$/),
+  name: text(120),
+});
+export const planCreate = z.object({
+  payerId: uuid,
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{2,16}$/),
+  name: text(120),
+  requiresEnrollment: z.boolean().default(true),
+});
+export const enrollmentCreate = z.object({
+  practitionerId: uuid,
+  payerPlanId: uuid,
+  siteId: uuid,
+  status: z.enum(ENROLLMENT_STATUSES).default("NOT_STARTED"),
+  submittedOn: iso.nullable().optional(),
+});
 export const enrollmentUpdate = z.object({
   version: z.number().int().positive(),
   status: z.enum(ENROLLMENT_STATUSES),

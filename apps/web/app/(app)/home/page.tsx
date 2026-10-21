@@ -66,7 +66,15 @@ export default async function HomePage() {
       {canProjects && (
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <CardHeader title="Needs attention" description="Your overdue and due-today tasks" actions={<Link className="text-[13px] font-medium text-teal-700 hover:underline" href="/tasks/my-work">My Work →</Link>} />
+            <CardHeader
+              title="Needs attention"
+              description="Your overdue and due-today tasks"
+              actions={
+                <Link className="text-[13px] font-medium text-teal-700 hover:underline" href="/tasks/my-work">
+                  My Work →
+                </Link>
+              }
+            />
             {focus.length ? (
               <ul className="divide-y divide-slate-100">
                 {focus.map((t) => (
@@ -99,7 +107,14 @@ export default async function HomePage() {
               </ul>
             ) : (
               <div className="p-4">
-                <EmptyState title="No projects yet" action={<Link className="text-sm font-medium text-teal-700 underline" href="/projects">Create a project</Link>} />
+                <EmptyState
+                  title="No projects yet"
+                  action={
+                    <Link className="text-sm font-medium text-teal-700 underline" href="/projects">
+                      Create a project
+                    </Link>
+                  }
+                />
               </div>
             )}
           </Card>

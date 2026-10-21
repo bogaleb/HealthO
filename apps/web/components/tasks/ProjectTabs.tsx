@@ -20,7 +20,10 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={cn("-mb-px border-b-2 px-3 py-2 text-[13.5px] font-medium", active ? "border-teal-700 text-teal-800" : "border-transparent text-slate-600 hover:text-slate-900")}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-[13.5px] font-medium",
+              active ? "border-teal-700 text-teal-800" : "border-transparent text-slate-600 hover:text-slate-900",
+            )}
           >
             {t.label}
           </Link>

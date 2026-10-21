@@ -39,18 +39,52 @@ export async function getReadinessMatrix(db: Db, ctx: AuthContext, query: unknow
   const date = q.date ?? asOf;
   const where = [practitionerScopeWhere(ctx), eq(practitioners.active, true)];
   if (q.profession) where.push(eq(practitioners.profession, q.profession));
-  const ps = await db.select().from(practitioners).where(and(...where)).orderBy(asc(practitioners.displayName));
+  const ps = await db
+    .select()
+    .from(practitioners)
+    .where(and(...where))
+    .orderBy(asc(practitioners.displayName));
   const ids = ps.map((p) => p.id);
   const [auths, rules, orgSites, links, plans, enrolls] = await Promise.all([
-    ids.length ? db.select().from(professionalAuthorities).where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), inArray(professionalAuthorities.practitionerId, ids))) : [],
+    ids.length
+      ? db
+          .select()
+          .from(professionalAuthorities)
+          .where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), inArray(professionalAuthorities.practitionerId, ids)))
+      : [],
     loadApprovedRules(db, ctx.organizationId),
-    db.select().from(sites).where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.active, true))).orderBy(asc(sites.code)),
-    ids.length ? db.select().from(practitionerSites).where(and(eq(practitionerSites.organizationId, ctx.organizationId), inArray(practitionerSites.practitionerId, ids))) : [],
-    db.select({ plan: payerPlans, payerName: payers.name }).from(payerPlans).innerJoin(payers, eq(payers.id, payerPlans.payerId)).where(eq(payerPlans.organizationId, ctx.organizationId)).orderBy(asc(payers.name), asc(payerPlans.name)),
-    ids.length ? db.select().from(providerEnrollments).where(and(eq(providerEnrollments.organizationId, ctx.organizationId), inArray(providerEnrollments.practitionerId, ids))) : [],
+    db
+      .select()
+      .from(sites)
+      .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.active, true)))
+      .orderBy(asc(sites.code)),
+    ids.length
+      ? db
+          .select()
+          .from(practitionerSites)
+          .where(and(eq(practitionerSites.organizationId, ctx.organizationId), inArray(practitionerSites.practitionerId, ids)))
+      : [],
+    db
+      .select({ plan: payerPlans, payerName: payers.name })
+      .from(payerPlans)
+      .innerJoin(payers, eq(payers.id, payerPlans.payerId))
+      .where(eq(payerPlans.organizationId, ctx.organizationId))
+      .orderBy(asc(payers.name), asc(payerPlans.name)),
+    ids.length
+      ? db
+          .select()
+          .from(providerEnrollments)
+          .where(and(eq(providerEnrollments.organizationId, ctx.organizationId), inArray(providerEnrollments.practitionerId, ids)))
+      : [],
   ]);
   const ruleFacts = rules.map(toRuleFact);
-  const jurisdictions = [...new Set([...orgSites.map((s) => s.state), ...rules.map((r) => r.jurisdiction), ...auths.filter((a) => a.authorityType !== "COMPACT_MEMBERSHIP_CLAIM").map((a) => a.jurisdiction)])].sort();
+  const jurisdictions = [
+    ...new Set([
+      ...orgSites.map((s) => s.state),
+      ...rules.map((r) => r.jurisdiction),
+      ...auths.filter((a) => a.authorityType !== "COMPACT_MEMBERSHIP_CLAIM").map((a) => a.jurisdiction),
+    ]),
+  ].sort();
 
   const license = ps.map((p) => {
     const facts = auths.filter((a) => a.practitionerId === p.id).map(toAuthorityFact);
@@ -59,7 +93,11 @@ export async function getReadinessMatrix(db: Db, ctx: AuthContext, query: unknow
       cells: Object.fromEntries(
         jurisdictions.map((j) => [
           j,
-          evaluateLicenseReadiness({ profession: p.profession as Profession, jurisdiction: j, modality: q.modality, date, providerPhysicalState: p.physicalState, asOf }, ruleFacts, facts),
+          evaluateLicenseReadiness(
+            { profession: p.profession as Profession, jurisdiction: j, modality: q.modality, date, providerPhysicalState: p.physicalState, asOf },
+            ruleFacts,
+            facts,
+          ),
         ]),
       ),
     };
@@ -76,7 +114,11 @@ export async function getReadinessMatrix(db: Db, ctx: AuthContext, query: unknow
           plans: plans.map(({ plan, payerName }) => ({
             planId: plan.id,
             label: `${payerName} · ${plan.name}`,
-            result: evaluatePayerReadiness({ practitionerId: p.id, siteId: l.siteId, date }, { id: plan.id, requiresEnrollment: plan.requiresEnrollment }, enrolls.map((e) => ({ ...e, verifiedAt: iso(e.verifiedAt) }))),
+            result: evaluatePayerReadiness(
+              { practitionerId: p.id, siteId: l.siteId, date },
+              { id: plan.id, requiresEnrollment: plan.requiresEnrollment },
+              enrolls.map((e) => ({ ...e, verifiedAt: iso(e.verifiedAt) })),
+            ),
           })),
         };
       }),
@@ -97,10 +139,7 @@ export async function getReadinessMatrix(db: Db, ctx: AuthContext, query: unknow
 
 /** Readiness snapshot for one provider (all jurisdictions, both modalities). */
 export async function getProviderReadiness(db: Db, ctx: AuthContext, practitionerId: string, date?: string) {
-  const [video, inPerson] = await Promise.all([
-    getReadinessMatrix(db, ctx, { modality: "VIDEO", date }),
-    getReadinessMatrix(db, ctx, { modality: "IN_PERSON", date }),
-  ]);
+  const [video, inPerson] = await Promise.all([getReadinessMatrix(db, ctx, { modality: "VIDEO", date }), getReadinessMatrix(db, ctx, { modality: "IN_PERSON", date })]);
   return {
     jurisdictions: video.jurisdictions,
     VIDEO: video.license.find((r) => r.practitioner.id === practitionerId)?.cells ?? {},

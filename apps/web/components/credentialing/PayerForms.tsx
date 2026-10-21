@@ -9,7 +9,11 @@ export function NewPayerButton() {
     <FormDialog
       title="New payer"
       description="Synthetic payer names only in demo mode."
-      trigger={(open) => <Button onClick={open}><Plus className="h-4 w-4" aria-hidden /> New payer</Button>}
+      trigger={(open) => (
+        <Button onClick={open}>
+          <Plus className="h-4 w-4" aria-hidden /> New payer
+        </Button>
+      )}
       fields={[
         { name: "code", label: "Code", type: "text", required: true, maxLength: 16 },
         { name: "name", label: "Name", type: "text", required: true },
@@ -23,7 +27,11 @@ export function NewPlanButton({ payerId, payerName }: { payerId: string; payerNa
   return (
     <FormDialog
       title={`New plan for ${payerName}`}
-      trigger={(open) => <Button size="sm" variant="secondary" onClick={open}><Plus className="h-3.5 w-3.5" aria-hidden /> Add plan</Button>}
+      trigger={(open) => (
+        <Button size="sm" variant="secondary" onClick={open}>
+          <Plus className="h-3.5 w-3.5" aria-hidden /> Add plan
+        </Button>
+      )}
       fields={[
         { name: "code", label: "Code", type: "text", required: true, maxLength: 16 },
         { name: "name", label: "Name", type: "text", required: true },

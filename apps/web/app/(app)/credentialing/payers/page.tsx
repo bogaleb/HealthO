@@ -16,7 +16,11 @@ export default async function PayersPage() {
   const canEdit = hasOrgWide(ctx, "credentialing.edit");
   return (
     <div>
-      <PageHeader title="Payers & plans" description="Payer master data. Provider participation is tracked per plan and site on each provider's page." actions={canEdit && <NewPayerButton />} />
+      <PageHeader
+        title="Payers & plans"
+        description="Payer master data. Provider participation is tracked per plan and site on each provider's page."
+        actions={canEdit && <NewPayerButton />}
+      />
       {payers.length === 0 ? (
         <EmptyState title="No payers yet" />
       ) : (
@@ -27,7 +31,9 @@ export default async function PayersPage() {
               <ul className="divide-y divide-slate-100 text-[13.5px]">
                 {p.plans.map((pl) => (
                   <li key={pl.id} className="flex items-center justify-between px-4 py-2">
-                    <span>{pl.name} <span className="font-mono text-xs text-slate-500">{pl.code}</span></span>
+                    <span>
+                      {pl.name} <span className="font-mono text-xs text-slate-500">{pl.code}</span>
+                    </span>
                     {pl.requiresEnrollment ? <Badge tone="blue">Enrollment required</Badge> : <Badge>No enrollment needed</Badge>}
                   </li>
                 ))}

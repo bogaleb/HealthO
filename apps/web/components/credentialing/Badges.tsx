@@ -5,9 +5,24 @@ import { AUTHORITY_STATUS_TONE, READINESS_LABEL, READINESS_TONE, daysUntil, form
 export function ExpiryBadge({ expiresOn, status, today }: { expiresOn: string | null; status: string; today: string }) {
   if (!expiresOn) return <span className="text-xs text-slate-500">No expiration</span>;
   const d = daysUntil(expiresOn, today);
-  if (d < 0 || status === "EXPIRED") return <Badge tone="red" icon={<XCircle className="h-3 w-3" aria-hidden />}>Expired {formatDate(expiresOn)}</Badge>;
-  if (d <= 30) return <Badge tone="red" icon={<AlertTriangle className="h-3 w-3" aria-hidden />}>Expires in {d} d</Badge>;
-  if (d <= 90) return <Badge tone="amber" icon={<Clock className="h-3 w-3" aria-hidden />}>Expires in {d} d</Badge>;
+  if (d < 0 || status === "EXPIRED")
+    return (
+      <Badge tone="red" icon={<XCircle className="h-3 w-3" aria-hidden />}>
+        Expired {formatDate(expiresOn)}
+      </Badge>
+    );
+  if (d <= 30)
+    return (
+      <Badge tone="red" icon={<AlertTriangle className="h-3 w-3" aria-hidden />}>
+        Expires in {d} d
+      </Badge>
+    );
+  if (d <= 90)
+    return (
+      <Badge tone="amber" icon={<Clock className="h-3 w-3" aria-hidden />}>
+        Expires in {d} d
+      </Badge>
+    );
   return <span className="tabular text-xs text-slate-600">Expires {formatDate(expiresOn)}</span>;
 }
 

@@ -57,7 +57,12 @@ describe("projects CRUD + permissions", () => {
     const admin = await A.users.admin.ctx();
     const [tpl] = await db
       .insert(projectTemplates)
-      .values({ organizationId: A.org.id, name: "T1", milestones: [{ name: "M1", offsetDays: 5 }], tasks: [{ title: "first", offsetDays: 1, milestone: "M1" }, { title: "second" }] })
+      .values({
+        organizationId: A.org.id,
+        name: "T1",
+        milestones: [{ name: "M1", offsetDays: 5 }],
+        tasks: [{ title: "first", offsetDays: 1, milestone: "M1" }, { title: "second" }],
+      })
       .returning();
     const p = (await createProject(db, admin, { key: "TPL", name: "From template", startDate: "2026-11-02", templateId: tpl!.id }))!;
     const d = await getProjectDetail(db, admin, p.id);
@@ -163,7 +168,10 @@ describe("idempotent create (duplicate retry)", () => {
     expect(second.task.id).toBe(first.task.id);
     const racers = await Promise.all(Array.from({ length: 5 }, () => createTask(db, pm, { projectId: p.id, title: "race" }, { idempotencyKey: "key-2" })));
     expect(new Set(racers.map((r) => r.task.id)).size).toBe(1);
-    const rows = await db.select().from(tasks).where(and(eq(tasks.projectId, p.id)));
+    const rows = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.projectId, p.id)));
     expect(rows).toHaveLength(2);
   });
 });
@@ -175,7 +183,14 @@ describe("recurring tasks", () => {
     const now = new Date("2026-11-20T15:00:00Z");
     const today = todayIn("America/New_York", now);
     await createRecurringDefinition(db, pm, { projectId: p.id, title: "Daily huddle notes", cadence: "DAILY", timezone: "America/New_York", startOn: addDays(today, -2) });
-    await createRecurringDefinition(db, pm, { projectId: p.id, title: "Weekly review", cadence: "WEEKLY", weekday: new Date(`${today}T00:00:00Z`).getUTCDay(), timezone: "America/New_York", startOn: addDays(today, -6) });
+    await createRecurringDefinition(db, pm, {
+      projectId: p.id,
+      title: "Weekly review",
+      cadence: "WEEKLY",
+      weekday: new Date(`${today}T00:00:00Z`).getUTCDay(),
+      timezone: "America/New_York",
+      startOn: addDays(today, -6),
+    });
     const r1 = await generateRecurringTasks(db, { organizationId: A.org.id, now });
     expect(r1.created).toBe(4); // 3 daily (today-2..today) + 1 weekly
     const r2 = await generateRecurringTasks(db, { organizationId: A.org.id, now });
@@ -194,7 +209,14 @@ describe("list filters, pagination and my work", () => {
     const p = (await createProject(db, pm, { key: "LST", name: "List" }))!;
     const today = todayIn("America/New_York");
     for (let i = 0; i < 12; i++) {
-      await createTask(db, pm, { projectId: p.id, title: `Item ${i}`, priority: i % 2 ? "HIGH" : "LOW", ownerUserId: pm.userId, dueDate: addDays(today, i - 3), labels: i % 3 === 0 ? ["triage"] : [] });
+      await createTask(db, pm, {
+        projectId: p.id,
+        title: `Item ${i}`,
+        priority: i % 2 ? "HIGH" : "LOW",
+        ownerUserId: pm.userId,
+        dueDate: addDays(today, i - 3),
+        labels: i % 3 === 0 ? ["triage"] : [],
+      });
     }
     const page2 = await listTasks(db, pm, { projectId: p.id, page: 2, pageSize: 5 });
     expect(page2.total).toBe(12);

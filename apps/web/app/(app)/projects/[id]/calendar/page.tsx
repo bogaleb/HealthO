@@ -9,7 +9,14 @@ import { requireContext, load } from "@/lib/session";
 export const metadata: Metadata = { title: "Calendar" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const STATUS_DOT: Record<string, string> = { TODO: "bg-slate-400", IN_PROGRESS: "bg-sky-500", IN_REVIEW: "bg-violet-500", BLOCKED: "bg-red-500", DONE: "bg-emerald-500", CANCELLED: "bg-slate-300" };
+const STATUS_DOT: Record<string, string> = {
+  TODO: "bg-slate-400",
+  IN_PROGRESS: "bg-sky-500",
+  IN_REVIEW: "bg-violet-500",
+  BLOCKED: "bg-red-500",
+  DONE: "bg-emerald-500",
+  CANCELLED: "bg-slate-300",
+};
 
 export default async function CalendarPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ month?: string }> }) {
   const { id } = await params;
@@ -57,11 +64,18 @@ export default async function CalendarPage({ params, searchParams }: { params: P
           <div key={i} role="gridcell" aria-label={d ?? undefined} className={cn("min-h-28 bg-white p-1.5", !d && "bg-slate-50")}>
             {d && (
               <>
-                <div className={cn("tabular mb-1 text-[12px]", d === today ? "inline-block rounded-full bg-teal-700 px-1.5 font-semibold text-white" : "text-slate-500")}>{Number(d.slice(8))}</div>
+                <div className={cn("tabular mb-1 text-[12px]", d === today ? "inline-block rounded-full bg-teal-700 px-1.5 font-semibold text-white" : "text-slate-500")}>
+                  {Number(d.slice(8))}
+                </div>
                 <ul className="space-y-1">
                   {(byDay.get(d) ?? []).map((t) => (
                     <li key={t.id}>
-                      <Link href={`?month=${month}&task=${t.id}`} scroll={false} className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[12px] hover:bg-slate-100" title={`${t.projectKey}-${t.number} ${t.title}`}>
+                      <Link
+                        href={`?month=${month}&task=${t.id}`}
+                        scroll={false}
+                        className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[12px] hover:bg-slate-100"
+                        title={`${t.projectKey}-${t.number} ${t.title}`}
+                      >
                         <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[t.status])} aria-hidden />
                         <span className="sr-only">{TASK_STATUS_LABEL[t.status as TaskStatus]}:</span>
                         <span className={cn("truncate", t.status === "DONE" && "text-slate-400 line-through")}>{t.title}</span>

@@ -48,7 +48,12 @@ function GrantEditor({ grants, setGrants, refs, idPrefix }: { grants: Grant[]; s
         return (
           <div key={i} className="flex items-end gap-2">
             <Field label={i === 0 ? "Role" : ""} htmlFor={`${idPrefix}-role-${i}`} className="flex-1">
-              <Select id={`${idPrefix}-role-${i}`} aria-label={`Role ${i + 1}`} value={g.roleId} onChange={(e) => setGrants(grants.map((x, j) => (j === i ? { roleId: e.target.value, siteId: null, departmentId: null } : x)))}>
+              <Select
+                id={`${idPrefix}-role-${i}`}
+                aria-label={`Role ${i + 1}`}
+                value={g.roleId}
+                onChange={(e) => setGrants(grants.map((x, j) => (j === i ? { roleId: e.target.value, siteId: null, departmentId: null } : x)))}
+              >
                 {refs.roles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -57,7 +62,12 @@ function GrantEditor({ grants, setGrants, refs, idPrefix }: { grants: Grant[]; s
               </Select>
             </Field>
             <Field label={i === 0 ? "Scope" : ""} htmlFor={`${idPrefix}-scope-${i}`} className="flex-1">
-              <Select id={`${idPrefix}-scope-${i}`} aria-label={`Scope for role ${i + 1}`} value={scopeValue(g)} onChange={(e) => setGrants(grants.map((x, j) => (j === i ? { ...x, ...fromScope(e.target.value) } : x)))}>
+              <Select
+                id={`${idPrefix}-scope-${i}`}
+                aria-label={`Scope for role ${i + 1}`}
+                value={scopeValue(g)}
+                onChange={(e) => setGrants(grants.map((x, j) => (j === i ? { ...x, ...fromScope(e.target.value) } : x)))}
+              >
                 <option value="org">Organization-wide</option>
                 {!orgOnly &&
                   refs.sites.map((s) => (
@@ -87,13 +97,27 @@ function GrantEditor({ grants, setGrants, refs, idPrefix }: { grants: Grant[]; s
   );
 }
 
-export function UsersAdmin({ members, invites, refs, me, filters }: { members: Member[]; invites: { id: string; email: string; displayName: string; expiresAt: string }[]; refs: Ref; me: string; filters: { departmentId?: string; status?: string } }) {
+export function UsersAdmin({
+  members,
+  invites,
+  refs,
+  me,
+  filters,
+}: {
+  members: Member[];
+  invites: { id: string; email: string; displayName: string; expiresAt: string }[];
+  refs: Ref;
+  me: string;
+  filters: { departmentId?: string; status?: string };
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<Member | null>(null);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inv, setInv] = useState({ email: "", displayName: "" });
-  const [invGrants, setInvGrants] = useState<Grant[]>([{ roleId: refs.roles.find((r) => r.name.startsWith("Read-only"))?.id ?? refs.roles[0]!.id, siteId: null, departmentId: null }]);
+  const [invGrants, setInvGrants] = useState<Grant[]>([
+    { roleId: refs.roles.find((r) => r.name.startsWith("Read-only"))?.id ?? refs.roles[0]!.id, siteId: null, departmentId: null },
+  ]);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,12 +182,24 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>
-                <th scope="col" className="px-3 py-2">Name</th>
-                <th scope="col" className="px-3 py-2">Email</th>
-                <th scope="col" className="px-3 py-2">Department</th>
-                <th scope="col" className="px-3 py-2">Roles &amp; scope</th>
-                <th scope="col" className="px-3 py-2">Status</th>
-                <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
+                <th scope="col" className="px-3 py-2">
+                  Name
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Email
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Department
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Roles &amp; scope
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -207,7 +243,10 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
                           onClick={async () => {
                             setError(null);
                             try {
-                              await apiFetch(`/api/v1/users/${m.membershipId}`, { method: "PATCH", body: { status: m.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE", version: m.version } });
+                              await apiFetch(`/api/v1/users/${m.membershipId}`, {
+                                method: "PATCH",
+                                body: { status: m.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE", version: m.version },
+                              });
                               reliableRefresh(router);
                             } catch (e) {
                               setError(errorMessage(e));
@@ -295,7 +334,15 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
         description="Local synthetic invite: no email is sent. Share the one-time code securely; it is shown only once."
         footer={
           token ? (
-            <Button onClick={() => { setInviteOpen(false); setToken(null); reliableRefresh(router); }}>Done</Button>
+            <Button
+              onClick={() => {
+                setInviteOpen(false);
+                setToken(null);
+                reliableRefresh(router);
+              }}
+            >
+              Done
+            </Button>
           ) : (
             <>
               <Button variant="secondary" onClick={() => setInviteOpen(false)}>
@@ -323,7 +370,8 @@ export function UsersAdmin({ members, invites, refs, me, filters }: { members: M
             </div>
           </div>
         ) : (
-          <form method="post"
+          <form
+            method="post"
             id="invite-form"
             className="space-y-3"
             onSubmit={async (e) => {

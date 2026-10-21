@@ -23,7 +23,9 @@ test("SEC-01: forged organizationId in body is ignored; site lands in the sessio
   await apiLogin(request, USERS.admin);
   const me = await (await request.get("/api/v1/me")).json();
   const code = `F${uid()}`;
-  const r = await request.post("/api/v1/sites", { data: { code, name: "Forged org test", state: "MD", timezone: "America/New_York", organizationId: "00000000-0000-4000-8000-000000000000" } });
+  const r = await request.post("/api/v1/sites", {
+    data: { code, name: "Forged org test", state: "MD", timezone: "America/New_York", organizationId: "00000000-0000-4000-8000-000000000000" },
+  });
   expect(r.status()).toBe(201);
   expect((await r.json()).data.organizationId).toBe(me.data.organization.id);
   await request.dispose();

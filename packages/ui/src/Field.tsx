@@ -4,7 +4,21 @@ import { cn } from "./cn";
 const control =
   "block w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100 aria-[invalid=true]:border-red-600";
 
-export function Field({ label, htmlFor, error, hint, children, className }: { label: string; htmlFor: string; error?: string; hint?: string; children: ReactNode; className?: string }) {
+export function Field({
+  label,
+  htmlFor,
+  error,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={cn("space-y-1", className)}>
       <label htmlFor={htmlFor} className="block text-[13px] font-medium text-slate-700">

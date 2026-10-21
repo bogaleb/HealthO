@@ -45,10 +45,7 @@ export const jobs = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [
-    check("jobs_status_ck", sql`${t.status} in ('PENDING','RUNNING','DONE','FAILED','DEAD')`),
-    index("jobs_status_run_idx").on(t.status, t.runAt),
-  ],
+  (t) => [check("jobs_status_ck", sql`${t.status} in ('PENDING','RUNNING','DONE','FAILED','DEAD')`), index("jobs_status_run_idx").on(t.status, t.runAt)],
 );
 
 /** Request idempotency records for retried mutations. */

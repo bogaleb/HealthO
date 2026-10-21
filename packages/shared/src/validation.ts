@@ -12,7 +12,11 @@ const trimmed = (max: number) => z.string().trim().min(1, "Required").max(max);
 // so a forged organizationId in a body is ignored and the session org is always used.
 
 export const siteCreate = z.object({
-  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{2,16}$/, "2–16 letters, digits or dashes"),
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{2,16}$/, "2–16 letters, digits or dashes"),
   name: trimmed(120),
   state: jurisdiction,
   timezone: timeZone,
@@ -24,7 +28,11 @@ export const siteUpdate = siteCreate.partial().extend({ active: z.boolean().opti
 
 export const departmentCreate = z.object({
   name: trimmed(120),
-  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{2,16}$/),
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{2,16}$/),
   siteId: uuid.nullable().optional(),
 });
 export const teamCreate = z.object({ name: trimmed(120), departmentId: uuid });
@@ -77,7 +85,11 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
 };
 
 export const projectCreate = z.object({
-  key: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9]{1,9}$/, "2–10 letters/digits, starting with a letter"),
+  key: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z][A-Z0-9]{1,9}$/, "2–10 letters/digits, starting with a letter"),
   name: trimmed(140),
   description: z.string().trim().max(4000).optional().nullable(),
   siteId: uuid.nullable().optional(),

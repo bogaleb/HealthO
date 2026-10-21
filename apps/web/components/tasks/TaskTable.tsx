@@ -114,20 +114,46 @@ export function TaskTable({
         {filters.mine === "true" ? " owned by or shared with you" : ""} · page {result.page} of {pages}
       </p>
       {result.items.length === 0 ? (
-        <EmptyState title="No tasks match these filters" description="Clear or relax a filter to see more." action={<Link href={basePath} className="text-sm font-medium text-teal-700 underline">Clear filters</Link>} />
+        <EmptyState
+          title="No tasks match these filters"
+          description="Clear or relax a filter to see more."
+          action={
+            <Link href={basePath} className="text-sm font-medium text-teal-700 underline">
+              Clear filters
+            </Link>
+          }
+        />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>
-                <th scope="col" className="px-3 py-2">ID</th>
-                <th scope="col" className="px-3 py-2">Title</th>
-                {showProject && <th scope="col" className="px-3 py-2">Project</th>}
-                <th scope="col" className="px-3 py-2">Status</th>
-                <th scope="col" className="px-3 py-2">Priority</th>
-                <th scope="col" className="px-3 py-2">Owner</th>
-                <th scope="col" className="px-3 py-2">Due</th>
-                <th scope="col" className="px-3 py-2">Labels</th>
+                <th scope="col" className="px-3 py-2">
+                  ID
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Title
+                </th>
+                {showProject && (
+                  <th scope="col" className="px-3 py-2">
+                    Project
+                  </th>
+                )}
+                <th scope="col" className="px-3 py-2">
+                  Status
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Priority
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Owner
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Due
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  Labels
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -139,7 +165,11 @@ export function TaskTable({
                       {t.projectKey}-{t.number}
                     </td>
                     <td className="px-3 py-2">
-                      <Link href={showProject ? `/projects/${t.projectId}/list?task=${t.id}` : qs({ task: t.id })} scroll={false} className="font-medium text-slate-800 hover:text-teal-800 hover:underline">
+                      <Link
+                        href={showProject ? `/projects/${t.projectId}/list?task=${t.id}` : qs({ task: t.id })}
+                        scroll={false}
+                        className="font-medium text-slate-800 hover:text-teal-800 hover:underline"
+                      >
                         {t.title}
                       </Link>
                       {t.isBlocked && (

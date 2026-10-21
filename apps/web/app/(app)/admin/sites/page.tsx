@@ -15,7 +15,10 @@ export default async function SitesPage() {
   const canCreate = hasOrgWide(ctx, "sites.manage");
   return (
     <div className="space-y-5">
-      <PageHeader title="Sites & Departments" description="Organization reference data, read live from PostgreSQL. Editing requires the Sites permission (org-wide, or for your own site)." />
+      <PageHeader
+        title="Sites & Departments"
+        description="Organization reference data, read live from PostgreSQL. Editing requires the Sites permission (org-wide, or for your own site)."
+      />
       <SitesAdmin sites={sites} canCreate={canCreate} manageable={manageableSiteIds(ctx, sites)} />
       <DepartmentsAdmin departments={departments} teams={teams} sites={sites.filter((s) => s.active)} canManage={canCreate} />
     </div>

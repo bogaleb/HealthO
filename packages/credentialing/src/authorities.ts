@@ -9,7 +9,10 @@ import { canOnPractitioner, dualControlEnabled, loadPractitioner } from "./acces
 type Authority = typeof professionalAuthorities.$inferSelect;
 
 async function loadAuthority(db: Db, ctx: AuthContext, id: string) {
-  const [a] = await db.select().from(professionalAuthorities).where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.id, id)));
+  const [a] = await db
+    .select()
+    .from(professionalAuthorities)
+    .where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.id, id)));
   if (!a) throw notFound("Authority");
   const { siteIds } = await loadPractitioner(db, ctx, a.practitionerId); // visibility check → 404 if out of scope
   return { a, siteIds };
@@ -46,7 +49,12 @@ async function transition(
     verifiedOn: history.verifiedOn ?? null,
     note: history.note ?? null,
   });
-  await audit(tx, ctx, { action: `authority.${history.action.toLowerCase()}`, resourceType: "authority", resourceId: a.id, metadata: { from: a.status, to, practitionerId: a.practitionerId } });
+  await audit(tx, ctx, {
+    action: `authority.${history.action.toLowerCase()}`,
+    resourceType: "authority",
+    resourceId: a.id,
+    metadata: { from: a.status, to, practitionerId: a.practitionerId },
+  });
   return row;
 }
 
@@ -66,7 +74,9 @@ export async function createAuthority(db: Db, ctx: AuthContext, practitionerId: 
   const { practitioner } = await loadPractitioner(db, ctx, practitionerId, { perm: "credentialing.edit", action: "authority.create" });
   const d = parse(authorityCreate, input);
   if (d.authorityType !== "COMPACT_MEMBERSHIP_CLAIM" && d.profession !== practitioner.profession) {
-    throw new AppError("VALIDATION_FAILED", `Authority profession must match the provider's profession (${practitioner.profession}).`, [{ code: "PROFESSION_MISMATCH", field: "profession" }]);
+    throw new AppError("VALIDATION_FAILED", `Authority profession must match the provider's profession (${practitioner.profession}).`, [
+      { code: "PROFESSION_MISMATCH", field: "profession" },
+    ]);
   }
   return db.transaction(async (tx) => {
     const [a] = await tx
@@ -74,7 +84,12 @@ export async function createAuthority(db: Db, ctx: AuthContext, practitionerId: 
       .values({ ...d, organizationId: ctx.organizationId, practitionerId, status: "DRAFT", createdBy: ctx.userId })
       .returning();
     await tx.insert(authorityVerifications).values({ organizationId: ctx.organizationId, authorityId: a!.id, action: "CREATE", toStatus: "DRAFT", actorUserId: ctx.userId });
-    await audit(tx, ctx, { action: "authority.create", resourceType: "authority", resourceId: a!.id, metadata: { practitionerId, type: d.authorityType, jurisdiction: d.jurisdiction } });
+    await audit(tx, ctx, {
+      action: "authority.create",
+      resourceType: "authority",
+      resourceId: a!.id,
+      metadata: { practitionerId, type: d.authorityType, jurisdiction: d.jurisdiction },
+    });
     return a!;
   });
 }
@@ -93,19 +108,28 @@ export async function verifyAuthority(db: Db, ctx: AuthContext, id: string, inpu
   await requirePerm(db, ctx, "credentialing.approve", siteIds, "authority.verify", id);
   const d = parse(authorityReview, input);
   if (a.status !== "SUBMITTED") throw new AppError("CONFLICT", "Only submitted evidence can be verified.");
-  if (a.authorityType === "COMPACT_MEMBERSHIP_CLAIM") throw new AppError("VALIDATION_FAILED", "A compact membership claim is informational and cannot be verified as an authority.");
+  if (a.authorityType === "COMPACT_MEMBERSHIP_CLAIM")
+    throw new AppError("VALIDATION_FAILED", "A compact membership claim is informational and cannot be verified as an authority.");
   if ((await dualControlEnabled(db, ctx.organizationId)) && (a.submittedBy === ctx.userId || a.createdBy === ctx.userId)) {
     await audit(db, ctx, { action: "authority.verify", resourceType: "authority", resourceId: id, outcome: "DENY", metadata: { reason: "dual_control" } });
     throw new AppError("FORBIDDEN", "Dual control: someone other than the person who entered or submitted this evidence must verify it.");
   }
   return db.transaction((tx) =>
-    transition(tx, ctx, a, d.version, "VERIFIED", { verifiedBy: ctx.userId, verifiedAt: new Date(), nextReviewOn: d.nextReviewOn ?? null }, {
-      action: "VERIFY",
-      sourceName: d.sourceName,
-      sourceUrl: d.sourceUrl,
-      verifiedOn: d.verifiedOn,
-      note: d.note,
-    }),
+    transition(
+      tx,
+      ctx,
+      a,
+      d.version,
+      "VERIFIED",
+      { verifiedBy: ctx.userId, verifiedAt: new Date(), nextReviewOn: d.nextReviewOn ?? null },
+      {
+        action: "VERIFY",
+        sourceName: d.sourceName,
+        sourceUrl: d.sourceUrl,
+        verifiedOn: d.verifiedOn,
+        note: d.note,
+      },
+    ),
   );
 }
 

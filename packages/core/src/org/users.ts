@@ -65,10 +65,25 @@ export async function listMembers(db: Db, ctx: AuthContext, filter: { department
     .orderBy(asc(memberships.displayName));
   if (!ms.length) return [];
   const gs = await db
-    .select({ id: roleGrants.id, membershipId: roleGrants.membershipId, roleId: roleGrants.roleId, roleName: roles.name, siteId: roleGrants.siteId, departmentId: roleGrants.departmentId })
+    .select({
+      id: roleGrants.id,
+      membershipId: roleGrants.membershipId,
+      roleId: roleGrants.roleId,
+      roleName: roles.name,
+      siteId: roleGrants.siteId,
+      departmentId: roleGrants.departmentId,
+    })
     .from(roleGrants)
     .innerJoin(roles, eq(roles.id, roleGrants.roleId))
-    .where(and(eq(roleGrants.organizationId, ctx.organizationId), inArray(roleGrants.membershipId, ms.map((m) => m.membershipId))));
+    .where(
+      and(
+        eq(roleGrants.organizationId, ctx.organizationId),
+        inArray(
+          roleGrants.membershipId,
+          ms.map((m) => m.membershipId),
+        ),
+      ),
+    );
   return ms.map((m) => ({ ...m, grants: gs.filter((g) => g.membershipId === m.membershipId) }));
 }
 
@@ -76,26 +91,41 @@ export async function listMembers(db: Db, ctx: AuthContext, filter: { department
 async function validateGrants(db: DbOrTx, ctx: AuthContext, grants: GrantInput[]) {
   const roleIds = [...new Set(grants.map((g) => g.roleId))];
   const rs = roleIds.length
-    ? await db.select({ id: roles.id }).from(roles).where(and(eq(roles.organizationId, ctx.organizationId), inArray(roles.id, roleIds)))
+    ? await db
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.organizationId, ctx.organizationId), inArray(roles.id, roleIds)))
     : [];
   if (rs.length !== roleIds.length) throw new AppError("VALIDATION_FAILED", "Unknown role.", [{ code: "UNKNOWN_ROLE", field: "grants" }]);
   const perms = roleIds.length
-    ? await db.select().from(rolePermissions).where(and(eq(rolePermissions.organizationId, ctx.organizationId), inArray(rolePermissions.roleId, roleIds)))
+    ? await db
+        .select()
+        .from(rolePermissions)
+        .where(and(eq(rolePermissions.organizationId, ctx.organizationId), inArray(rolePermissions.roleId, roleIds)))
     : [];
   const all = new Set<Permission>();
   for (const g of grants) {
     if (g.siteId && g.departmentId) throw new AppError("VALIDATION_FAILED", "A grant may be scoped to a site or a department, not both.");
-    const rp = perms.filter((p) => p.roleId === g.roleId).map((p) => p.permission).filter(isPermission);
+    const rp = perms
+      .filter((p) => p.roleId === g.roleId)
+      .map((p) => p.permission)
+      .filter(isPermission);
     rp.forEach((p) => all.add(p));
     if ((g.siteId || g.departmentId) && rp.some((p) => ORG_WIDE_ONLY.includes(p))) {
       throw new AppError("VALIDATION_FAILED", "This role contains organization-wide-only permissions and cannot be scoped.");
     }
     if (g.siteId) {
-      const s = await db.select({ id: sites.id }).from(sites).where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, g.siteId)));
+      const s = await db
+        .select({ id: sites.id })
+        .from(sites)
+        .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, g.siteId)));
       if (!s.length) throw new AppError("VALIDATION_FAILED", "Unknown site.", [{ code: "UNKNOWN_SITE", field: "grants" }]);
     }
     if (g.departmentId) {
-      const d = await db.select({ id: departments.id }).from(departments).where(and(eq(departments.organizationId, ctx.organizationId), eq(departments.id, g.departmentId)));
+      const d = await db
+        .select({ id: departments.id })
+        .from(departments)
+        .where(and(eq(departments.organizationId, ctx.organizationId), eq(departments.id, g.departmentId)));
       if (!d.length) throw new AppError("VALIDATION_FAILED", "Unknown department.", [{ code: "UNKNOWN_DEPARTMENT", field: "grants" }]);
     }
   }
@@ -105,7 +135,10 @@ async function validateGrants(db: DbOrTx, ctx: AuthContext, grants: GrantInput[]
 export async function setRoles(db: Db, ctx: AuthContext, membershipId: string, input: unknown) {
   await authorize(db, ctx, "users.manage", {}, { action: "membership.roles.set", resourceType: "membership", resourceId: membershipId });
   const data = parse(setMembershipRoles, input);
-  const [m] = await db.select().from(memberships).where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.id, membershipId)));
+  const [m] = await db
+    .select()
+    .from(memberships)
+    .where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.id, membershipId)));
   if (!m) throw notFound("Member");
   if (m.id === ctx.membershipId) {
     await audit(db, ctx, { action: "membership.roles.set", resourceType: "membership", resourceId: membershipId, outcome: "DENY", metadata: { reason: "self_change" } });
@@ -122,7 +155,14 @@ export async function setRoles(db: Db, ctx: AuthContext, membershipId: string, i
     await tx.delete(roleGrants).where(and(eq(roleGrants.organizationId, ctx.organizationId), eq(roleGrants.membershipId, m.id)));
     if (data.grants.length) {
       await tx.insert(roleGrants).values(
-        data.grants.map((g) => ({ organizationId: ctx.organizationId, membershipId: m.id, roleId: g.roleId, siteId: g.siteId ?? null, departmentId: g.departmentId ?? null, grantedBy: ctx.userId })),
+        data.grants.map((g) => ({
+          organizationId: ctx.organizationId,
+          membershipId: m.id,
+          roleId: g.roleId,
+          siteId: g.siteId ?? null,
+          departmentId: g.departmentId ?? null,
+          grantedBy: ctx.userId,
+        })),
       );
     }
     await audit(tx, ctx, { action: "membership.roles.set", resourceType: "membership", resourceId: m.id, metadata: { grants: data.grants } });
@@ -141,7 +181,10 @@ export async function updateMembership(db: Db, ctx: AuthContext, membershipId: s
       .where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.id, membershipId), eq(memberships.version, data.version)))
       .returning();
     if (!row) {
-      const [exists] = await tx.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.id, membershipId)));
+      const [exists] = await tx
+        .select({ id: memberships.id })
+        .from(memberships)
+        .where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.id, membershipId)));
       throw exists ? versionConflict() : notFound("Member");
     }
     await audit(tx, ctx, { action: `membership.${data.status === "ACTIVE" ? "reactivate" : "suspend"}`, resourceType: "membership", resourceId: membershipId });
@@ -162,7 +205,10 @@ export async function createInvite(db: Db, ctx: AuthContext, input: unknown) {
   await validateGrants(db, ctx, data.grants);
   const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, data.email));
   if (existingUser) {
-    const [m] = await db.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.userId, existingUser.id)));
+    const [m] = await db
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.userId, existingUser.id)));
     if (m) throw new AppError("CONFLICT", "This person is already a member.");
   }
   const token = randomBytes(32).toString("base64url");
@@ -201,7 +247,10 @@ export async function listInvites(db: Db, ctx: AuthContext) {
 export async function acceptInvite(db: Db, input: unknown, hash: (pw: string) => Promise<string>) {
   const data = parse(inviteAccept, input);
   const invalid = () => new AppError("INVITE_INVALID", "This invitation is invalid or has expired.");
-  const [inv] = await db.select().from(invites).where(eq(invites.tokenHash, hashToken(data.token)));
+  const [inv] = await db
+    .select()
+    .from(invites)
+    .where(eq(invites.tokenHash, hashToken(data.token)));
   if (!inv || inv.status !== "PENDING" || inv.expiresAt.getTime() < Date.now()) throw invalid();
   const passwordHash = await hash(data.password);
   return db.transaction(async (tx) => {
@@ -218,17 +267,25 @@ export async function acceptInvite(db: Db, input: unknown, hash: (pw: string) =>
     } else {
       throw invalid(); // existing identity must sign in and be added by an admin (avoids account takeover via invite)
     }
-    const [m] = await tx
-      .insert(memberships)
-      .values({ organizationId: inv.organizationId, userId: u!.id, displayName: inv.displayName, status: "ACTIVE" })
-      .returning();
+    const [m] = await tx.insert(memberships).values({ organizationId: inv.organizationId, userId: u!.id, displayName: inv.displayName, status: "ACTIVE" }).returning();
     const grants = inv.grants as GrantInput[];
     if (grants.length) {
       await tx.insert(roleGrants).values(
-        grants.map((g) => ({ organizationId: inv.organizationId, membershipId: m!.id, roleId: g.roleId, siteId: g.siteId ?? null, departmentId: g.departmentId ?? null, grantedBy: inv.invitedBy })),
+        grants.map((g) => ({
+          organizationId: inv.organizationId,
+          membershipId: m!.id,
+          roleId: g.roleId,
+          siteId: g.siteId ?? null,
+          departmentId: g.departmentId ?? null,
+          grantedBy: inv.invitedBy,
+        })),
       );
     }
-    await audit(tx, { system: "invite.accept", organizationId: inv.organizationId }, { action: "invite.accept", resourceType: "membership", resourceId: m!.id, metadata: { inviteId: inv.id } });
+    await audit(
+      tx,
+      { system: "invite.accept", organizationId: inv.organizationId },
+      { action: "invite.accept", resourceType: "membership", resourceId: m!.id, metadata: { inviteId: inv.id } },
+    );
     return { email: inv.email };
   });
 }

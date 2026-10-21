@@ -8,10 +8,7 @@ export async function GET() {
   const started = Date.now();
   try {
     const db = getDb();
-    const check = Promise.all([
-      db.execute(sql`select 1 as ok`),
-      db.execute<{ n: number }>(sql`select count(*)::int as n from drizzle.__drizzle_migrations`),
-    ]);
+    const check = Promise.all([db.execute(sql`select 1 as ok`), db.execute<{ n: number }>(sql`select count(*)::int as n from drizzle.__drizzle_migrations`)]);
     const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 2000));
     const [, migrations] = await Promise.race([check, timeout]);
     return NextResponse.json({ status: "ready", mode: appMode(), checks: { database: "ok", migrationsApplied: migrations[0]?.n ?? 0 }, ms: Date.now() - started });

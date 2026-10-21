@@ -47,25 +47,38 @@ export async function createCase(db: Db, ctx: AuthContext, input: unknown) {
   await loadPractitioner(db, ctx, d.practitionerId, { perm: "credentialing.edit", action: "case.create" });
   await assertMember(db, ctx, d.ownerUserId);
   if (d.authorityId) {
-    const [a] = await db.select({ p: professionalAuthorities.practitionerId }).from(professionalAuthorities).where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.id, d.authorityId)));
+    const [a] = await db
+      .select({ p: professionalAuthorities.practitionerId })
+      .from(professionalAuthorities)
+      .where(and(eq(professionalAuthorities.organizationId, ctx.organizationId), eq(professionalAuthorities.id, d.authorityId)));
     if (a?.p !== d.practitionerId) throw new AppError("VALIDATION_FAILED", "Authority does not belong to this provider.", [{ code: "BAD_LINK", field: "authorityId" }]);
   }
   if (d.enrollmentId) {
-    const [e] = await db.select({ p: providerEnrollments.practitionerId }).from(providerEnrollments).where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.id, d.enrollmentId)));
+    const [e] = await db
+      .select({ p: providerEnrollments.practitionerId })
+      .from(providerEnrollments)
+      .where(and(eq(providerEnrollments.organizationId, ctx.organizationId), eq(providerEnrollments.id, d.enrollmentId)));
     if (e?.p !== d.practitionerId) throw new AppError("VALIDATION_FAILED", "Enrollment does not belong to this provider.", [{ code: "BAD_LINK", field: "enrollmentId" }]);
   }
   return db.transaction(async (tx) => {
-    const [c] = await tx.insert(credentialingCases).values({ ...d, organizationId: ctx.organizationId, createdBy: ctx.userId }).returning();
+    const [c] = await tx
+      .insert(credentialingCases)
+      .values({ ...d, organizationId: ctx.organizationId, createdBy: ctx.userId })
+      .returning();
     await audit(tx, ctx, { action: "case.create", resourceType: "credentialing_case", resourceId: c!.id, metadata: { practitionerId: d.practitionerId, caseType: d.caseType } });
     return c!;
   });
 }
 
 async function loadCase(db: Db, ctx: AuthContext, id: string) {
-  const [c] = await db.select().from(credentialingCases).where(and(eq(credentialingCases.organizationId, ctx.organizationId), eq(credentialingCases.id, id)));
+  const [c] = await db
+    .select()
+    .from(credentialingCases)
+    .where(and(eq(credentialingCases.organizationId, ctx.organizationId), eq(credentialingCases.id, id)));
   if (!c) throw notFound("Case");
   const { siteIds } = await loadPractitioner(db, ctx, c.practitionerId);
-  if (!canOnPractitioner(ctx, "credentialing.edit", siteIds)) await authorize(db, ctx, "credentialing.edit", {}, { action: "case.update", resourceType: "credentialing_case", resourceId: id });
+  if (!canOnPractitioner(ctx, "credentialing.edit", siteIds))
+    await authorize(db, ctx, "credentialing.edit", {}, { action: "case.update", resourceType: "credentialing_case", resourceId: id });
   return c;
 }
 
@@ -112,7 +125,11 @@ export async function linkCaseTask(db: Db, ctx: AuthContext, id: string, input: 
     { projectId, title: `${c.title} — ${p?.name ?? "provider"}`, ownerUserId: c.ownerUserId, dueDate: c.dueDate, labels: ["credentialing"] },
     { idempotencyKey: `case-task-${c.id}` },
   );
-  const [row] = await db.update(credentialingCases).set({ taskId: task.id, version: c.version + 1 }).where(and(eq(credentialingCases.id, id), eq(credentialingCases.version, c.version))).returning();
+  const [row] = await db
+    .update(credentialingCases)
+    .set({ taskId: task.id, version: c.version + 1 })
+    .where(and(eq(credentialingCases.id, id), eq(credentialingCases.version, c.version)))
+    .returning();
   if (!row) throw versionConflict();
   await audit(db, ctx, { action: "case.link_task", resourceType: "credentialing_case", resourceId: id, metadata: { taskId: task.id, projectId } });
   return { case: row, task };

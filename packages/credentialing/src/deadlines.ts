@@ -8,9 +8,15 @@ export const DEADLINE_THRESHOLDS = [90, 60, 30] as const;
 const RENEWAL_PROJECT_KEY = "RENEW";
 
 async function ensureRenewalProject(db: Db, organizationId: string) {
-  const [existing] = await db.select().from(projects).where(and(eq(projects.organizationId, organizationId), eq(projects.key, RENEWAL_PROJECT_KEY)));
+  const [existing] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.organizationId, organizationId), eq(projects.key, RENEWAL_PROJECT_KEY)));
   if (existing) return existing;
-  const [dept] = await db.select({ id: departments.id }).from(departments).where(and(eq(departments.organizationId, organizationId), eq(departments.code, "CRED")));
+  const [dept] = await db
+    .select({ id: departments.id })
+    .from(departments)
+    .where(and(eq(departments.organizationId, organizationId), eq(departments.code, "CRED")));
   const [p] = await db
     .insert(projects)
     .values({
@@ -26,7 +32,10 @@ async function ensureRenewalProject(db: Db, organizationId: string) {
     await audit(db, { system: "credentialing.deadlines", organizationId }, { action: "project.create", resourceType: "project", resourceId: p.id });
     return p;
   }
-  const [again] = await db.select().from(projects).where(and(eq(projects.organizationId, organizationId), eq(projects.key, RENEWAL_PROJECT_KEY)));
+  const [again] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.organizationId, organizationId), eq(projects.key, RENEWAL_PROJECT_KEY)));
   return again!;
 }
 
@@ -55,7 +64,9 @@ export async function runCredentialDeadlines(db: Db, opts: { organizationId?: st
         .where(and(eq(professionalAuthorities.id, a.id), eq(professionalAuthorities.status, "VERIFIED")))
         .returning({ id: professionalAuthorities.id });
       if (!r.length) return;
-      await tx.insert(authorityVerifications).values({ organizationId: a.organizationId, authorityId: a.id, action: "EXPIRE", fromStatus: "VERIFIED", toStatus: "EXPIRED", note: `Expired ${a.expiresOn}` });
+      await tx
+        .insert(authorityVerifications)
+        .values({ organizationId: a.organizationId, authorityId: a.id, action: "EXPIRE", fromStatus: "VERIFIED", toStatus: "EXPIRED", note: `Expired ${a.expiresOn}` });
       await audit(tx, { system: "credentialing.deadlines", organizationId: a.organizationId }, { action: "authority.expire", resourceType: "authority", resourceId: a.id });
       expired++;
     });
@@ -65,7 +76,9 @@ export async function runCredentialDeadlines(db: Db, opts: { organizationId?: st
     .select({ a: professionalAuthorities, name: practitioners.displayName })
     .from(professionalAuthorities)
     .innerJoin(practitioners, eq(practitioners.id, professionalAuthorities.practitionerId))
-    .where(and(orgFilter, eq(professionalAuthorities.status, "VERIFIED"), gte(professionalAuthorities.expiresOn, today), lte(professionalAuthorities.expiresOn, addDays(today, 90))));
+    .where(
+      and(orgFilter, eq(professionalAuthorities.status, "VERIFIED"), gte(professionalAuthorities.expiresOn, today), lte(professionalAuthorities.expiresOn, addDays(today, 90))),
+    );
   for (const { a, name } of upcoming) {
     const daysLeft = Math.round((Date.parse(`${a.expiresOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
     const reached = DEADLINE_THRESHOLDS.filter((t) => daysLeft <= t); // e.g. 25 days → [90,60,30]
@@ -82,7 +95,11 @@ export async function runCredentialDeadlines(db: Db, opts: { organizationId?: st
       const mine = claimed.find((c) => c.thresholdDays === String(tightest));
       if (!mine) return; // already handled by an earlier run
       const project = await ensureRenewalProject(tx as unknown as Db, a.organizationId);
-      const [seq] = await tx.update(projects).set({ taskSeq: sql`${projects.taskSeq} + 1` }).where(eq(projects.id, project.id)).returning({ n: projects.taskSeq });
+      const [seq] = await tx
+        .update(projects)
+        .set({ taskSeq: sql`${projects.taskSeq} + 1` })
+        .where(eq(projects.id, project.id))
+        .returning({ n: projects.taskSeq });
       const [t] = await tx
         .insert(tasks)
         .values({
@@ -97,7 +114,11 @@ export async function runCredentialDeadlines(db: Db, opts: { organizationId?: st
         })
         .returning({ id: tasks.id });
       await tx.update(credentialDeadlineNotices).set({ taskId: t!.id }).where(eq(credentialDeadlineNotices.id, mine.id));
-      await audit(tx, { system: "credentialing.deadlines", organizationId: a.organizationId }, { action: "authority.deadline_task", resourceType: "authority", resourceId: a.id, metadata: { thresholdDays: tightest, taskId: t!.id } });
+      await audit(
+        tx,
+        { system: "credentialing.deadlines", organizationId: a.organizationId },
+        { action: "authority.deadline_task", resourceType: "authority", resourceId: a.id, metadata: { thresholdDays: tightest, taskId: t!.id } },
+      );
       created++;
     });
   }

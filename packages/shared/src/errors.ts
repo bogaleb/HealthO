@@ -49,11 +49,9 @@ export class AppError extends Error {
   }
 }
 
-export const forbidden = (message = "You do not have permission to perform this action.") =>
-  new AppError("FORBIDDEN", message);
+export const forbidden = (message = "You do not have permission to perform this action.") => new AppError("FORBIDDEN", message);
 export const notFound = (what = "Resource") => new AppError("NOT_FOUND", `${what} not found.`);
-export const versionConflict = () =>
-  new AppError("VERSION_CONFLICT", "This record was changed by someone else. Reload and try again.");
+export const versionConflict = () => new AppError("VERSION_CONFLICT", "This record was changed by someone else. Reload and try again.");
 
 export function isAppError(e: unknown): e is AppError {
   return e instanceof AppError;

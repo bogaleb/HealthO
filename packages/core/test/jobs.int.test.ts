@@ -33,7 +33,10 @@ describe("postgres job queue", () => {
     let [j] = await db.select().from(jobs).where(eq(jobs.id, id));
     expect(j!.status).toBe("FAILED");
     expect(j!.runAt.getTime()).toBeGreaterThan(Date.now());
-    await db.update(jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(jobs.id, id));
+    await db
+      .update(jobs)
+      .set({ runAt: new Date(Date.now() - 1000) })
+      .where(eq(jobs.id, id));
     await runDueJobs(db, 1);
     [j] = await db.select().from(jobs).where(eq(jobs.id, id));
     expect(j!.status).toBe("DEAD");

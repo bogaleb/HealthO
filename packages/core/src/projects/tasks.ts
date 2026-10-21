@@ -1,18 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, count, desc, eq, gte, ilike, isNull, lt, lte, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { qualified, type Db, type Tx } from "@projectos/db";
-import {
-  checklistItems,
-  idempotencyKeys,
-  memberships,
-  milestones,
-  projects,
-  taskCollaborators,
-  taskComments,
-  taskDependencies,
-  taskEvents,
-  tasks,
-} from "@projectos/db/schema";
+import { checklistItems, idempotencyKeys, memberships, milestones, projects, taskCollaborators, taskComments, taskDependencies, taskEvents, tasks } from "@projectos/db/schema";
 import { can, type AuthContext } from "@projectos/auth";
 import {
   AppError,
@@ -42,7 +31,9 @@ export const isBlockedSql = sql<boolean>`exists (
   select 1 from task_dependencies d join tasks b on b.id = d.blocking_task_id
   where d.blocked_task_id = ${qualified(tasks.id)} and d.kind = 'BLOCKS' and b.deleted_at is null and b.status not in ('DONE','CANCELLED'))`;
 
-const ownerName = sql<string | null>`(select m.display_name from memberships m where m.user_id = ${qualified(tasks.ownerUserId)} and m.organization_id = ${qualified(tasks.organizationId)})`;
+const ownerName = sql<
+  string | null
+>`(select m.display_name from memberships m where m.user_id = ${qualified(tasks.ownerUserId)} and m.organization_id = ${qualified(tasks.organizationId)})`;
 
 async function loadTaskWithProject(db: Db | Tx, ctx: AuthContext, taskId: string) {
   const [row] = await db
@@ -85,12 +76,16 @@ export async function createTask(db: Db, ctx: AuthContext, input: unknown, opts:
   let depth = 0;
   if (data.parentTaskId) {
     const parent = await loadTaskWithProject(db, ctx, data.parentTaskId);
-    if (parent.task.projectId !== project.id) throw new AppError("VALIDATION_FAILED", "Parent task must be in the same project.", [{ code: "PARENT_PROJECT", field: "parentTaskId" }]);
+    if (parent.task.projectId !== project.id)
+      throw new AppError("VALIDATION_FAILED", "Parent task must be in the same project.", [{ code: "PARENT_PROJECT", field: "parentTaskId" }]);
     if (parent.task.depth >= 1) throw new AppError("VALIDATION_FAILED", "Subtasks can be nested only two levels deep.", [{ code: "MAX_DEPTH", field: "parentTaskId" }]);
     depth = 1;
   }
   if (data.milestoneId) {
-    const [m] = await db.select({ id: milestones.id }).from(milestones).where(and(eq(milestones.organizationId, ctx.organizationId), eq(milestones.projectId, project.id), eq(milestones.id, data.milestoneId)));
+    const [m] = await db
+      .select({ id: milestones.id })
+      .from(milestones)
+      .where(and(eq(milestones.organizationId, ctx.organizationId), eq(milestones.projectId, project.id), eq(milestones.id, data.milestoneId)));
     if (!m) throw new AppError("VALIDATION_FAILED", "Unknown milestone.", [{ code: "UNKNOWN_MILESTONE", field: "milestoneId" }]);
   }
   const newId = randomUUID();
@@ -106,7 +101,10 @@ export async function createTask(db: Db, ctx: AuthContext, input: unknown, opts:
           .select({ resourceId: idempotencyKeys.resourceId })
           .from(idempotencyKeys)
           .where(and(eq(idempotencyKeys.organizationId, ctx.organizationId), eq(idempotencyKeys.scope, "task.create"), eq(idempotencyKeys.key, opts.idempotencyKey)));
-        const [existing] = await tx.select().from(tasks).where(and(eq(tasks.organizationId, ctx.organizationId), eq(tasks.id, prior!.resourceId)));
+        const [existing] = await tx
+          .select()
+          .from(tasks)
+          .where(and(eq(tasks.organizationId, ctx.organizationId), eq(tasks.id, prior!.resourceId)));
         if (!existing) throw new AppError("CONFLICT", "Idempotency key was already used.");
         return { task: existing, replayed: true };
       }
@@ -155,7 +153,10 @@ export async function updateTask(db: Db, ctx: AuthContext, taskId: string, input
   await assertMember(db, ctx, patch.ownerUserId);
   await assertCollaborators(db, ctx, collaboratorUserIds);
   if (patch.milestoneId) {
-    const [m] = await db.select({ id: milestones.id }).from(milestones).where(and(eq(milestones.organizationId, ctx.organizationId), eq(milestones.projectId, task.projectId), eq(milestones.id, patch.milestoneId)));
+    const [m] = await db
+      .select({ id: milestones.id })
+      .from(milestones)
+      .where(and(eq(milestones.organizationId, ctx.organizationId), eq(milestones.projectId, task.projectId), eq(milestones.id, patch.milestoneId)));
     if (!m) throw new AppError("VALIDATION_FAILED", "Unknown milestone.", [{ code: "UNKNOWN_MILESTONE", field: "milestoneId" }]);
   }
   return db.transaction(async (tx) => {
@@ -190,7 +191,11 @@ export async function moveTask(db: Db, ctx: AuthContext, taskId: string, input: 
       select b.id, b.number from task_dependencies d join tasks b on b.id = d.blocking_task_id
       where d.blocked_task_id = ${taskId} and d.kind = 'BLOCKS' and b.deleted_at is null and b.status not in ('DONE','CANCELLED')`);
     if (blockers.length) {
-      throw new AppError("TASK_BLOCKED", "This task is blocked by unfinished tasks.", [...blockers].map((b) => ({ code: "BLOCKED_BY", field: String(b.number) })));
+      throw new AppError(
+        "TASK_BLOCKED",
+        "This task is blocked by unfinished tasks.",
+        [...blockers].map((b) => ({ code: "BLOCKED_BY", field: String(b.number) })),
+      );
     }
   }
   return db.transaction(async (tx) => {
@@ -241,7 +246,10 @@ export async function moveTask(db: Db, ctx: AuthContext, taskId: string, input: 
 export async function deleteTask(db: Db, ctx: AuthContext, taskId: string) {
   await requireTaskEdit(db, ctx, taskId, "task.delete");
   return db.transaction(async (tx) => {
-    await tx.update(tasks).set({ deletedAt: new Date() }).where(and(eq(tasks.organizationId, ctx.organizationId), or(eq(tasks.id, taskId), eq(tasks.parentTaskId, taskId))));
+    await tx
+      .update(tasks)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(tasks.organizationId, ctx.organizationId), or(eq(tasks.id, taskId), eq(tasks.parentTaskId, taskId))));
     await event(tx, ctx, taskId, "DELETED");
     await audit(tx, ctx, { action: "task.delete", resourceType: "task", resourceId: taskId });
   });
@@ -255,7 +263,11 @@ export async function getTaskDetail(db: Db, ctx: AuthContext, taskId: string) {
       .from(taskCollaborators)
       .innerJoin(memberships, and(eq(memberships.userId, taskCollaborators.userId), eq(memberships.organizationId, taskCollaborators.organizationId)))
       .where(and(eq(taskCollaborators.organizationId, ctx.organizationId), eq(taskCollaborators.taskId, taskId))),
-    db.select().from(checklistItems).where(and(eq(checklistItems.organizationId, ctx.organizationId), eq(checklistItems.taskId, taskId))).orderBy(asc(checklistItems.position), asc(checklistItems.createdAt)),
+    db
+      .select()
+      .from(checklistItems)
+      .where(and(eq(checklistItems.organizationId, ctx.organizationId), eq(checklistItems.taskId, taskId)))
+      .orderBy(asc(checklistItems.position), asc(checklistItems.createdAt)),
     db
       .select({ id: taskComments.id, body: taskComments.body, createdAt: taskComments.createdAt, authorName: memberships.displayName, authorUserId: taskComments.authorUserId })
       .from(taskComments)
@@ -263,20 +275,43 @@ export async function getTaskDetail(db: Db, ctx: AuthContext, taskId: string) {
       .where(and(eq(taskComments.organizationId, ctx.organizationId), eq(taskComments.taskId, taskId)))
       .orderBy(asc(taskComments.createdAt)),
     db
-      .select({ id: taskEvents.id, type: taskEvents.type, fromValue: taskEvents.fromValue, toValue: taskEvents.toValue, createdAt: taskEvents.createdAt, actorName: memberships.displayName })
+      .select({
+        id: taskEvents.id,
+        type: taskEvents.type,
+        fromValue: taskEvents.fromValue,
+        toValue: taskEvents.toValue,
+        createdAt: taskEvents.createdAt,
+        actorName: memberships.displayName,
+      })
       .from(taskEvents)
       .leftJoin(memberships, and(eq(memberships.userId, taskEvents.actorUserId), eq(memberships.organizationId, taskEvents.organizationId)))
       .where(and(eq(taskEvents.organizationId, ctx.organizationId), eq(taskEvents.taskId, taskId)))
       .orderBy(desc(taskEvents.createdAt))
       .limit(50),
     db
-      .select({ dependencyId: taskDependencies.id, kind: taskDependencies.kind, id: tasks.id, number: tasks.number, title: tasks.title, status: tasks.status, projectKey: projects.key })
+      .select({
+        dependencyId: taskDependencies.id,
+        kind: taskDependencies.kind,
+        id: tasks.id,
+        number: tasks.number,
+        title: tasks.title,
+        status: tasks.status,
+        projectKey: projects.key,
+      })
       .from(taskDependencies)
       .innerJoin(tasks, eq(tasks.id, taskDependencies.blockingTaskId))
       .innerJoin(projects, eq(projects.id, tasks.projectId))
       .where(and(eq(taskDependencies.organizationId, ctx.organizationId), eq(taskDependencies.blockedTaskId, taskId), isNull(tasks.deletedAt))),
     db
-      .select({ dependencyId: taskDependencies.id, kind: taskDependencies.kind, id: tasks.id, number: tasks.number, title: tasks.title, status: tasks.status, projectKey: projects.key })
+      .select({
+        dependencyId: taskDependencies.id,
+        kind: taskDependencies.kind,
+        id: tasks.id,
+        number: tasks.number,
+        title: tasks.title,
+        status: tasks.status,
+        projectKey: projects.key,
+      })
       .from(taskDependencies)
       .innerJoin(tasks, eq(tasks.id, taskDependencies.blockedTaskId))
       .innerJoin(projects, eq(projects.id, tasks.projectId))
@@ -288,7 +323,10 @@ export async function getTaskDetail(db: Db, ctx: AuthContext, taskId: string) {
       .orderBy(asc(tasks.number)),
   ]);
   const [owner] = task.ownerUserId
-    ? await db.select({ displayName: memberships.displayName }).from(memberships).where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.userId, task.ownerUserId)))
+    ? await db
+        .select({ displayName: memberships.displayName })
+        .from(memberships)
+        .where(and(eq(memberships.organizationId, ctx.organizationId), eq(memberships.userId, task.ownerUserId)))
     : [];
   return {
     task,
@@ -340,7 +378,11 @@ export async function listTasks(db: Db, ctx: AuthContext, query: unknown) {
       .orderBy(sql`${tasks.dueDate} asc nulls last`, asc(tasks.number))
       .limit(q.pageSize)
       .offset((q.page - 1) * q.pageSize),
-    db.select({ n: count() }).from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId)).where(and(...where)),
+    db
+      .select({ n: count() })
+      .from(tasks)
+      .innerJoin(projects, eq(projects.id, tasks.projectId))
+      .where(and(...where)),
   ]);
   return { items: rows.map(flatten), total: Number(total?.n ?? 0), page: q.page, pageSize: q.pageSize };
 }
@@ -370,10 +412,7 @@ export async function getCalendar(db: Db, ctx: AuthContext, projectId: string, f
 /** Tasks owned by or shared with the caller, grouped relative to "today" in the org time zone. */
 export async function getMyWork(db: Db, ctx: AuthContext, timeZone = "America/New_York") {
   await authorize(db, ctx, "projects.read", "ANY");
-  const mine = or(
-    eq(tasks.ownerUserId, ctx.userId),
-    sql`exists (select 1 from task_collaborators c where c.task_id = ${qualified(tasks.id)} and c.user_id = ${ctx.userId})`,
-  )!;
+  const mine = or(eq(tasks.ownerUserId, ctx.userId), sql`exists (select 1 from task_collaborators c where c.task_id = ${qualified(tasks.id)} and c.user_id = ${ctx.userId})`)!;
   const rows = await db
     .select(listSelect)
     .from(tasks)
@@ -412,7 +451,10 @@ export async function addChecklistItem(db: Db, ctx: AuthContext, taskId: string,
       .select({ max: sql<number | null>`max(${checklistItems.position})` })
       .from(checklistItems)
       .where(eq(checklistItems.taskId, taskId));
-    const [item] = await tx.insert(checklistItems).values({ organizationId: ctx.organizationId, taskId, text: data.text, position: (r?.max ?? 0) + 1 }).returning();
+    const [item] = await tx
+      .insert(checklistItems)
+      .values({ organizationId: ctx.organizationId, taskId, text: data.text, position: (r?.max ?? 0) + 1 })
+      .returning();
     await event(tx, ctx, taskId, "CHECKLIST_ADDED", null, item!.id);
     return item!;
   });
@@ -467,7 +509,12 @@ export async function addDependency(db: Db, ctx: AuthContext, taskId: string, in
       .returning();
     if (dep) {
       await event(tx, ctx, taskId, "DEPENDENCY_ADDED", data.kind, data.blockingTaskId);
-      await audit(tx, ctx, { action: "task.dependency.add", resourceType: "task", resourceId: taskId, metadata: { blockingTaskId: data.blockingTaskId, kind: data.kind, projectId: task.projectId } });
+      await audit(tx, ctx, {
+        action: "task.dependency.add",
+        resourceType: "task",
+        resourceId: taskId,
+        metadata: { blockingTaskId: data.blockingTaskId, kind: data.kind, projectId: task.projectId },
+      });
     }
     return dep ?? null;
   });

@@ -44,7 +44,8 @@ export function NewProjectButton({
           </>
         }
       >
-        <form method="post"
+        <form
+          method="post"
           id="np-form"
           className="space-y-3"
           onSubmit={async (e) => {

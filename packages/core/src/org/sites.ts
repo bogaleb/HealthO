@@ -13,11 +13,18 @@ export type SiteRow = typeof sites.$inferSelect;
 export async function listSites(db: Db, ctx: AuthContext, opts: { includeInactive?: boolean } = {}) {
   const where = [eq(sites.organizationId, ctx.organizationId)];
   if (!opts.includeInactive) where.push(eq(sites.active, true));
-  return db.select().from(sites).where(and(...where)).orderBy(asc(sites.code));
+  return db
+    .select()
+    .from(sites)
+    .where(and(...where))
+    .orderBy(asc(sites.code));
 }
 
 export async function getSite(db: Db, ctx: AuthContext, id: string) {
-  const [row] = await db.select().from(sites).where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, id)));
+  const [row] = await db
+    .select()
+    .from(sites)
+    .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, id)));
   if (!row) throw notFound("Site");
   return row;
 }
@@ -70,7 +77,10 @@ export async function createDepartment(db: Db, ctx: AuthContext, input: unknown)
   if (data.siteId) await getSite(db, ctx, data.siteId);
   try {
     return await db.transaction(async (tx) => {
-      const [row] = await tx.insert(departments).values({ ...data, organizationId: ctx.organizationId }).returning();
+      const [row] = await tx
+        .insert(departments)
+        .values({ ...data, organizationId: ctx.organizationId })
+        .returning();
       await audit(tx, ctx, { action: "department.create", resourceType: "department", resourceId: row!.id });
       return row!;
     });
@@ -93,7 +103,10 @@ export async function createTeam(db: Db, ctx: AuthContext, input: unknown) {
   if (!dept) throw notFound("Department");
   try {
     return await db.transaction(async (tx) => {
-      const [row] = await tx.insert(teams).values({ ...data, organizationId: ctx.organizationId }).returning();
+      const [row] = await tx
+        .insert(teams)
+        .values({ ...data, organizationId: ctx.organizationId })
+        .returning();
       await audit(tx, ctx, { action: "team.create", resourceType: "team", resourceId: row!.id });
       return row!;
     });
@@ -105,7 +118,10 @@ export async function createTeam(db: Db, ctx: AuthContext, input: unknown) {
 /** Validates that site/department IDs belong to the caller's organization (prevents cross-org references). */
 export async function assertOrgScopeRefs(db: Db, ctx: AuthContext, ref: { siteId?: string | null; departmentId?: string | null }) {
   if (ref.siteId) {
-    const r = await db.select({ id: sites.id }).from(sites).where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, ref.siteId)));
+    const r = await db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.organizationId, ctx.organizationId), eq(sites.id, ref.siteId)));
     if (!r.length) throw new AppError("VALIDATION_FAILED", "Unknown site.", [{ code: "UNKNOWN_SITE", field: "siteId" }]);
   }
   if (ref.departmentId) {
@@ -123,4 +139,3 @@ export function manageableSiteIds(ctx: AuthContext, all: SiteRow[]): string[] {
   const f = scopeFilter(ctx, "sites.manage");
   return f.all ? all.map((s) => s.id) : all.filter((s) => f.siteIds.includes(s.id)).map((s) => s.id);
 }
-

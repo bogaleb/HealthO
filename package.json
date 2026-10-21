@@ -25,7 +25,7 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "15.5.28",
+    "@next/eslint-plugin-next": "16.4.2",
     "@playwright/test": "1.56.1",
     "@projectos/auth": "workspace:*",
     "@projectos/core": "workspace:*",

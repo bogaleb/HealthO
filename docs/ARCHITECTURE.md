@@ -2,7 +2,7 @@
 
 ```
 Browser ──► Next.js (apps/web)
-             ├─ middleware.ts        request id; cookie-presence redirect to /login (cheap gate only)
+             ├─ proxy.ts             request id; cookie-presence redirect to /login (cheap gate only)
              ├─ app/(app)/**          server components → requireContext() → core use-cases
              ├─ app/api/v1/**         api() wrapper: session → AuthContext, same-origin check,
              │                        JSON size limit, Zod via use-case, stable error JSON, request id

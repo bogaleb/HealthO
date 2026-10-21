@@ -64,7 +64,10 @@ test("invite → accept → new member signs in with the scoped role", async ({ 
 test("auditor sees allow and deny events with request IDs", async ({ page }) => {
   await login(page, USERS.auditor);
   // Produce a denial first so the test doesn't depend on other specs: auditors cannot create sites.
-  const denied = await page.request.post("/api/v1/sites", { data: { code: `A${uid()}`, name: "x", state: "VA", timezone: "America/New_York" }, headers: { origin: "http://localhost:3000" } });
+  const denied = await page.request.post("/api/v1/sites", {
+    data: { code: `A${uid()}`, name: "x", state: "VA", timezone: "America/New_York" },
+    headers: { origin: "http://localhost:3000" },
+  });
   expect(denied.status()).toBe(403);
   await page.goto("/admin/audit?outcome=DENY");
   await settle(page);

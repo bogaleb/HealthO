@@ -91,7 +91,11 @@ export function RolesAdmin({ roles, canManage, held }: { roles: Role[]; canManag
                 setError(null);
                 try {
                   if (editing === "new") await apiFetch("/api/v1/roles", { method: "POST", body: { name, description: description || null, permissions: perms } });
-                  else if (editing) await apiFetch(`/api/v1/roles/${editing.id}`, { method: "PATCH", body: { name, description: description || null, permissions: perms, version: editing.version } });
+                  else if (editing)
+                    await apiFetch(`/api/v1/roles/${editing.id}`, {
+                      method: "PATCH",
+                      body: { name, description: description || null, permissions: perms, version: editing.version },
+                    });
                   setEditing(null);
                   reliableRefresh(router);
                 } catch (e) {
@@ -120,7 +124,13 @@ export function RolesAdmin({ roles, canManage, held }: { roles: Role[]; canManag
             <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
               {PERMISSIONS.map((p) => (
                 <label key={p} className={`flex items-start gap-2 rounded px-1.5 py-1 text-[13px] ${held.includes(p) ? "" : "opacity-50"}`}>
-                  <input type="checkbox" className="mt-0.5" disabled={!held.includes(p)} checked={perms.includes(p)} onChange={(e) => setPerms(e.target.checked ? [...perms, p] : perms.filter((x) => x !== p))} />
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    disabled={!held.includes(p)}
+                    checked={perms.includes(p)}
+                    onChange={(e) => setPerms(e.target.checked ? [...perms, p] : perms.filter((x) => x !== p))}
+                  />
                   <span>
                     <span className="font-mono text-[12px]">{p}</span>
                     <span className="block text-xs text-slate-500">{PERMISSION_LABELS[p]}</span>

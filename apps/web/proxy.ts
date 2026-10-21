@@ -6,7 +6,7 @@ const PUBLIC = ["/login", "/invite", "/no-access", "/api/auth", "/api/v1/health"
  * Cheap gate: attaches a request id and redirects page requests without a session cookie to /login.
  * Real authentication and authorization happen server-side in layouts and API handlers.
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const headers = new Headers(req.headers);
   headers.set("x-request-id", requestId);
