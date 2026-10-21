@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: projectos_dev_password
       POSTGRES_DB: projectos
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro

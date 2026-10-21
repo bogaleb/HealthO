@@ -15,7 +15,11 @@ See `docs/PROGRESS.md` for exactly what works, what was verified, and what is ne
 
 No paid services, cloud accounts or API keys are required.
 
-## First-time setup
+## Windows one-click (recommended)
+
+Double-click **`START-WINDOWS.cmd`**. It installs what is missing (Node LTS, pnpm, Docker Desktop via winget), creates `.env`, starts PostgreSQL in Docker on **127.0.0.1:5433**, migrates, seeds synthetic data, starts the app and opens http://localhost:3000. Progress is written to `setup.log`. Re-run it any time to start the app again.
+
+## First-time setup (manual)
 
 macOS / Linux / Git Bash:
 
@@ -23,7 +27,7 @@ macOS / Linux / Git Bash:
 cp .env.example .env
 # Edit .env: set BETTER_AUTH_SECRET (32+ random chars) and DEMO_PASSWORD (12+ chars).
 #   Generate a secret:  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-docker compose up -d db          # PostgreSQL 16 on localhost:5432 (also creates projectos_test)
+docker compose up -d db          # PostgreSQL 16 on 127.0.0.1:5433 (also creates projectos_test)
 pnpm install
 pnpm db:migrate                  # applies packages/db/migrations to a clean database
 pnpm db:seed                     # one SYNTHETIC organization, 3 sites, 6 demo staff, 2 projects
