@@ -1,0 +1,15 @@
+phase,feature,deliverable,acceptance,priority
+0,Repository and local startup,Web + Postgres + migrations + demo login,Synthetic local app starts and health check passes,P0
+1,Auth and org RBAC,Session/org/site permissions,Forbidden access denied in API tests,P0
+2,Project/task board,Task CRU + real Kanban persistence,Refresh retains tasks/status/assignee,P0
+3,Provider and license evidence,"Evidence review, expiration, payer/site enrollment",Readiness changes when verification changes,P0
+4,Calendars and booking,Appointments + working schedule + holds,Parallel booking has exactly one success,P0
+5,Interstate eligibility,Patient physical state / provider authorities / payer,Missing MD authority or wrong state blocks confirmation,P0
+5,Check-in location reevaluation,MD to DC patient location at visit,Existing booking flagged and visit progression blocked,P0
+5,Waitlist,Offers and expirations,Slot always re-evaluated at offer and acceptance,P1
+6,RCM operations,Work queues and linked tasks,"Real records, audit and counts reconcile",P0
+6,Dashboard,KPIs and detailed filters,No invented analytics; timestamps and definitions,P0
+7,EHR simulator,Adapter interface and EHR master fail-closed,Offline authoritative EHR cannot silently confirm,P0
+7,PHI gate,"BAAs, security, EHR, regulatory approvals",No live records without signed checks,P0
+8,Recovery and release,Backup restore and release automation,Restoration reproducible and tested,P0
+9,Multi-tenant commercialization,Provisioning and subscription controls,Blocked until pilot approval,P2

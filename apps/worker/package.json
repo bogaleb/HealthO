@@ -1,0 +1,18 @@
+{
+  "name": "@projectos/worker",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "once": "tsx src/index.ts --once",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@projectos/core": "workspace:*",
+    "@projectos/db": "workspace:*",
+    "@projectos/shared": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "kysely": "0.29.7"
+  }
+}

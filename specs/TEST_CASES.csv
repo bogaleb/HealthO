@@ -1,0 +1,29 @@
+id,scenario,expected,invariant
+LIC-01,VA-only verified physician; MD patient video,BLOCK/REVIEW,No blanket cross-state permit
+LIC-02,VA resident physically MD,BLOCK/REVIEW,Use actual MD location
+LIC-03,MD booked then DC at check-in,BLOCK/REVIEW,Reevaluate before visit
+LIC-04,IMLC membership no distinct MD license,BLOCK/REVIEW,Compact != issued state license
+LIC-05,"RN verified multistate, eligible test jurisdiction",ALLOW only if all checks pass,Test policy approval present
+LIC-06,RN NLC credential used for APRN,BLOCK/REVIEW,Profession-specific authority
+LIC-07,PSYPACT jurisdiction psychologist without APIT,BLOCK/REVIEW,APIT evidence required
+LIC-08,Expired or suspended authority,BLOCK,Date/status effective
+LIC-09,No approved policy rule,REVIEW,Default deny
+LIC-10,Valid license; payer plan/site enrollment pending,BLOCK/REVIEW,Separate payer readiness
+LIC-11,Provider physically in prohibited origination location,BLOCK/REVIEW,Review provider location condition
+LIC-12,No appointment patient location,REVIEW,Location required
+SCH-01,Two users book same provider/time,"One success, one 409",DB exclusion
+SCH-02,Room unavailable,409 or alternative,Room reservation DB exclusion
+SCH-03,DST spring-forward nonexistent time,Reject/omit,Timezone-aware
+SCH-04,DST fall-back ambiguous time,Explicit offset,Timezone-aware
+SCH-05,Failed reschedule target,Original unchanged,Atomic transaction
+SCH-06,Cancel slot,Reservations released,Audit and reuse
+SCH-07,Hold expiry,Idempotent release,Worker
+EHR-01,Authoritative EHR unavailable,No local confirmed sync,Fail closed
+EHR-02,Retry external create,Exactly once mapping,Idempotency
+SEC-01,Forged org ID in body,403/no access,Session-derived org
+SEC-02,Unauthorized policy publication,403,Review permission
+SEC-03,Read restricted patient data,403 or minimized,Minimum necessary
+OPS-01,Duplicate renewal jobs,One reminder,Idempotent jobs
+PROJ-01,Kanban task drag and refresh,Persist,Real DB
+PROJ-02,Task dependency cycle,422 rejected,Cycle guard
+RCM-01,Assigned case follow-up,Count updates,Source reconciliation

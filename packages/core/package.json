@@ -1,0 +1,22 @@
+{
+  "name": "@projectos/core",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "seed": "tsx src/seed/seed.ts"
+  },
+  "dependencies": {
+    "@projectos/auth": "workspace:*",
+    "@projectos/db": "workspace:*",
+    "@projectos/shared": "workspace:*",
+    "better-auth": "1.7.12",
+    "drizzle-orm": "0.45.4",
+    "kysely": "0.29.7",
+    "zod": "4.6.7"
+  }
+}

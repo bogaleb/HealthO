@@ -1,0 +1,5 @@
+# Prompt 08 — Release engineering and security hardening
+
+Implement technical hardening based on documented risk assessment; do not declare compliance on behalf of the organization. Use a PHI-eligible deployment architecture only after AWS/provider BAAs and service scopes are externally verified. Prepare infrastructure-as-code for approved environments, least-privilege IAM, encrypted data/backups, HTTPS, network restrictions, session MFA, logging without PHI, code scanning, release versioning, runbooks and restore automation.
+
+Validate DB restore from a clean deployment, privilege escalation tests, concurrency load test, EHR outage behavior, clinic outage plan, accessible critical workflows, performance budget, staging-to-prod migration and rollback plan. Keep synthetic or approved test data until signoff. Produce a real release candidate checklist with BLOCKED/PASS evidence per item, operations handbook and realistic cost report. Never assume an AWS BAA makes any service/configuration compliant automatically.
