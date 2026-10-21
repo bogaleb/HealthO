@@ -9,7 +9,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: "scheduling_manager",
     name: "Scheduling Manager",
     description: "Configure and manage schedules.",
-    permissions: ["scheduling.read", "scheduling.manage", "patients.read", "projects.read", "projects.edit"],
+    permissions: ["scheduling.read", "scheduling.manage", "scheduling.configure", "patients.read", "projects.read", "projects.edit"],
   },
   {
     key: "scheduler",

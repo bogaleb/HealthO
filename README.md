@@ -17,7 +17,7 @@ No paid services, cloud accounts or API keys are required.
 
 ## Windows one-click (recommended)
 
-Double-click **`START-WINDOWS.cmd`**. It installs what is missing (Node LTS, pnpm, Docker Desktop via winget), creates `.env`, starts PostgreSQL in Docker on **127.0.0.1:5433**, migrates, seeds synthetic data, starts the app and opens http://localhost:3000. Progress is written to `setup.log`. Re-run it any time to start the app again.
+Double-click **`START-WINDOWS.cmd`**. It installs what is missing (Node LTS, pnpm, Docker Desktop via winget), creates `.env`, starts PostgreSQL in Docker on **127.0.0.1:5433**, migrates, seeds synthetic data, starts the app and the background worker (two windows) and opens http://localhost:3000. Progress is written to `setup.log`. Re-run it any time to start the app again.
 
 ## First-time setup (manual)
 

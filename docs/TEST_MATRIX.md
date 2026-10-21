@@ -33,5 +33,14 @@
 | OPS-01 | Credential deadline job: one task per threshold, idempotent across reruns + concurrent runs | `credentialing.int.test.ts` | ✅ |
 | — | Approved rules immutable; verification history append-only (DB triggers) | int | ✅ |
 | — | Phase 3 exit: readiness changes when evidence is verified / suspended / payer approved+verified | int + e2e | ✅ |
-| SCH-*, LIC-12, EHR-*, RCM-01 | Scheduling, booking-time eligibility, EHR, RCM | — | ⏳ Phases 4–7 |
+| SCH-01 | Two (and five) concurrent bookings, same provider/time → exactly one | `scheduling.int.test.ts` (Promise.all) + `e2e/scheduling.spec.ts` (HTTP 201/409) | ✅ |
+| SCH-02 | Room conflict (sequential → NO_ROOM, concurrent → DB exclusion) | int | ✅ |
+| — | Buffer overlap reserved (10:05 blocked, 10:10 ok) | unit + int | ✅ |
+| SCH-03 / SCH-04 | DST gap rejected/omitted; fall-back ambiguity shown with explicit offsets; 23/25-h calendar days | unit + int + e2e (UI messages) | ✅ |
+| SCH-05 | Failed reschedule leaves original unchanged; parallel rebooking → one wins | int + e2e (drawer reschedule) | ✅ |
+| SCH-06 | Cancel releases reservations; slot rebookable; cancel idempotent | int + e2e | ✅ |
+| SCH-07 | Stale hold blocks until explicitly released; worker idempotent across 3 concurrent runs; owner cannot use expired hold | int | ✅ |
+| — | Unauthorized booking: wrong site (403 + DENY audit), no scheduling.manage, other org, unauthenticated; demo flag off → BOOKING_DISABLED | int + e2e | ✅ |
+| — | Idempotency-Key replay; append-only appointment history; reservations cannot be deleted | int + e2e | ✅ |
+| LIC-12, EHR-*, RCM-01 | Booking-time eligibility, EHR, RCM | — | ⏳ Phases 5–7 |
 | OPS-02 | Backup restore drill | — | ⏳ Phase 8 |

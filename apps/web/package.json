@@ -13,6 +13,7 @@
     "@projectos/auth": "workspace:*",
     "@projectos/core": "workspace:*",
     "@projectos/credentialing": "workspace:*",
+    "@projectos/scheduling": "workspace:*",
     "@projectos/db": "workspace:*",
     "@projectos/shared": "workspace:*",
     "@projectos/ui": "workspace:*",

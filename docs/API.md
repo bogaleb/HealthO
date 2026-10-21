@@ -55,5 +55,20 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | GET | /api/v1/credentialing/readiness?modality&date&profession | read | full matrix (license + payer) with reasons and evidence IDs |
 | GET | /api/v1/credentialing/reference | read | sites, specialties, services |
 | POST | /api/v1/jobs/credentialing-deadlines | org-wide `org.manage` | expiry + 90/60/30-day renewal tasks (idempotent; worker runs daily) |
+| **Scheduling (Phase 4 — synthetic demo)** | | | |
+| GET | /api/v1/scheduling/reference | scheduling.read | sites (scoped), appointment types, providers, rooms, services |
+| POST | /api/v1/scheduling/search | scheduling.read | `{appointmentTypeId, modality, siteId?, practitionerId?, fromDate, days≤14, patientState?}` → slots with reasons; eligibility `POLICY_PENDING` |
+| GET | /api/v1/scheduling/calendar?date&view=day\|week&siteId&practitionerId | scheduling.read | day boundaries in the site/org zone (23/25-h DST days) |
+| GET/POST | /api/v1/appointment-types, PATCH /:id | read / org-wide `scheduling.configure` | |
+| GET/POST | /api/v1/rooms | read / `scheduling.configure` at site | |
+| GET/POST | /api/v1/schedule-templates, DELETE /:id | read / configure at site | DELETE deactivates (history kept); overlapping blocks → 409 |
+| GET/POST | /api/v1/schedule-exceptions, DELETE /:id | read / configure | PTO, CLOSURE, BLOCK; response lists impacted appointments (never auto-cancelled) |
+| GET/POST | /api/v1/patients?q, GET /:id | patients.read (+ scheduling.manage to create) | ≥2 chars, ≤20 rows; create = synthetic only |
+| POST | /api/v1/appointments/holds | scheduling.manage at site | expires after SCHEDULING_HOLD_MINUTES; 409 SLOT_CONFLICT |
+| GET/DELETE | /api/v1/appointments/holds/:id | owner or manage | release |
+| POST | /api/v1/appointments | scheduling.manage at site | `Idempotency-Key`; optional `holdId`; 403 BOOKING_DISABLED unless demo flag; 409 SLOT_CONFLICT / HOLD_EXPIRED; 422 SLOT_UNAVAILABLE |
+| GET/PATCH | /api/v1/appointments/:id | read / manage | PATCH = atomic reschedule `{version, startAt, reason, practitionerId?, siteId?}` |
+| POST | /api/v1/appointments/:id/cancel | manage | `{version, reason}`; releases reservations; idempotent |
+| POST | /api/v1/appointments/:id/status | manage | CHECKED_IN (visit day only), COMPLETED, NO_SHOW (after start) |
 
 An OpenAPI document is not generated yet (tracked in PROGRESS.md).

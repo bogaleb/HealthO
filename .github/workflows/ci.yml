@@ -16,6 +16,7 @@ jobs:
         options: --health-cmd "pg_isready -U projectos" --health-interval 5s --health-retries 20
     env:
       APP_MODE: DEVELOPMENT
+      SCHEDULING_MODE: DEMO_ONLY
       DATABASE_URL: postgresql://projectos:ci_only_password@localhost:5432/projectos
       TEST_DATABASE_URL: postgresql://projectos:ci_only_password@localhost:5432/projectos_test
       # CI-only throwaway values; no real secrets are available to this workflow.

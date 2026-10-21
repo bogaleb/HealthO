@@ -12,6 +12,7 @@
     "@projectos/core": "workspace:*",
     "@projectos/credentialing": "workspace:*",
     "@projectos/db": "workspace:*",
+    "@projectos/scheduling": "workspace:*",
     "@projectos/shared": "workspace:*",
     "drizzle-orm": "0.45.4",
     "kysely": "0.29.7"

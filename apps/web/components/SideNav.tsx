@@ -1,7 +1,24 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeCheck, ClipboardList, FolderKanban, Grid3X3, Home, KeyRound, Landmark, MapPin, Scale, ScrollText, Stethoscope, Users } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarDays,
+  CalendarPlus,
+  ClipboardList,
+  FolderKanban,
+  Grid3X3,
+  Home,
+  KeyRound,
+  Landmark,
+  MapPin,
+  Scale,
+  ScrollText,
+  Search,
+  Settings2,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 import { cn } from "@projectos/ui";
 
 const ICONS = {
@@ -17,6 +34,10 @@ const ICONS = {
   readiness: Grid3X3,
   payers: Landmark,
   rules: Scale,
+  calendar: CalendarDays,
+  find: Search,
+  book: CalendarPlus,
+  setup: Settings2,
 };
 export interface NavItem {
   href: string;
@@ -67,7 +88,7 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
         ))}
       <div className="mt-auto rounded-md border border-white/10 px-2.5 py-2 text-[11.5px] leading-snug text-slate-400">
         <p className="font-semibold text-slate-300">Not built yet</p>
-        <p className="mt-0.5">Scheduling with license-aware booking (Phases 4–5) and revenue-cycle queues (Phase 6).</p>
+        <p className="mt-0.5">License-aware booking eligibility (Phase 5) and revenue-cycle queues (Phase 6).</p>
       </div>
     </nav>
   );

@@ -10,6 +10,7 @@ export const USERS = {
   auditor: "jordan.kim@riverbend.example",
   approver: "morgan.reyes@riverbend.example",
   compliance: "dana.brooks@riverbend.example",
+  schedManager: "quinn.park@riverbend.example",
 };
 
 /** Wait until client components are hydrated (no pending network) before interacting. */

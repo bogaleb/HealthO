@@ -1,6 +1,7 @@
 import { createDb, loadRootEnv } from "@projectos/db";
 import { JOB_HANDLERS, enqueueJob, recoverStaleJobs, runDueJobs } from "@projectos/core";
 import { runCredentialDeadlines } from "@projectos/credentialing";
+import { releaseExpiredHolds } from "@projectos/scheduling";
 import { logger, todayIn } from "@projectos/shared";
 
 /**
@@ -9,7 +10,7 @@ import { logger, todayIn } from "@projectos/shared";
  * - `--once` runs a single tick and exits (used by tests/cron).
  */
 loadRootEnv();
-const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 30_000);
+const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 15_000);
 const once = process.argv.includes("--once");
 const { db, sql } = createDb(undefined, 3);
 // Credential expiry + 90/60/30-day renewal tasks (idempotent; safe to run repeatedly).
@@ -22,9 +23,12 @@ async function tick() {
   const hour = new Date().toISOString().slice(0, 13);
   await enqueueJob(db, "recurring.generate", `recurring.generate:${day}:${hour}`);
   await enqueueJob(db, "credentialing.deadlines", `credentialing.deadlines:${day}`);
+  // Explicit release of expired appointment holds: idempotent and SKIP LOCKED, so it runs directly every tick
+  // (no job row per minute). Until it runs, an expired hold keeps blocking — never a silent double booking.
+  const holds = await releaseExpiredHolds(db);
   const recovered = await recoverStaleJobs(db);
   const ran = await runDueJobs(db);
-  if (ran || recovered) logger.info("worker.tick", { ran, recovered });
+  if (ran || recovered || holds.released) logger.info("worker.tick", { ran, recovered, holdsReleased: holds.released });
 }
 
 async function main() {

@@ -70,6 +70,11 @@ if (-not (Test-Path ".env")) {
     Set-Content ".env" -Encoding ASCII
   Log "Created .env (demo password: Riverbend-Demo-2026)"
 } else { Log ".env already exists - keeping it." }
+# Add settings introduced by later phases to an existing .env (never overwrites a value you set).
+foreach ($line in @("SCHEDULING_MODE=DEMO_ONLY", "SCHEDULING_HOLD_MINUTES=5")) {
+  $key = ($line -split "=", 2)[0]
+  if (-not (Select-String -Path ".env" -Pattern "^$key=" -Quiet)) { Add-Content ".env" $line; Log "Added $line to .env" }
+}
 
 # Use this project's .env for DB settings in this window (overrides any system-wide DATABASE_URL).
 Get-Content ".env" | Where-Object { $_ -match "^(DATABASE_URL|TEST_DATABASE_URL)=" } | ForEach-Object { $k, $v = $_ -split "=", 2; Set-Item "env:$k" $v }
@@ -90,6 +95,8 @@ Run "Seed SYNTHETIC demo data" { pnpm db:seed }
 # 8. Start the web app in its own window and open the browser
 Log "Starting web app on http://localhost:3000 (new window; close it to stop the app)"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle='ProjectOS Health - web (close to stop)'; pnpm dev"
+Log "Starting background worker (new window): releases expired appointment holds, recurring tasks, credential deadlines"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle='ProjectOS Health - worker (close to stop)'; pnpm worker"
 $deadline = (Get-Date).AddMinutes(3)
 do { Start-Sleep 3; try { $ok = (Invoke-WebRequest "http://localhost:3000/api/v1/health/ready" -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { $ok = $false } } until ($ok -or (Get-Date) -gt $deadline)
 if ($ok) {

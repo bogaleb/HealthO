@@ -1,6 +1,6 @@
 # PROGRESS — ProjectOS Health
 
-_Last updated: 2026-10-21 · Current phase: **Phase 3 complete → next is Phase 4 (Prompt 04_SCHEDULING)**_
+_Last updated: 2026-10-21 · Current phase: **Phase 4 complete → next is Phase 5 (Prompt 05_LICENSE_AWARE_MATCHING)**_
 
 Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (no integration code exists yet). Not approved for PHI.
 
@@ -12,8 +12,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 | 1 | Org-scoped memberships, sites/departments/teams, roles & scoped grants, invites, staff/roles/sites/audit UI, server-side permission gates, negative tests | ✅ Done, verified |
 | 2 | Projects, milestones, tasks (2-level), checklist, comments, dependencies, activity, board/list/calendar/My Work, templates, recurring tasks (idempotent), job worker | ✅ Done, verified |
 | 3 | Practitioners, professional authorities + verification, license policy rules (dual control), payers/plans/enrollments, credentialing cases, readiness matrix, deadline job | ✅ Done, verified |
-| 4 | Scheduling | ⏳ Next |
-| 5–9 | License-aware booking eligibility, RCM, EHR, hardening, SaaS | Not started |
+| 4 | Scheduling (synthetic demo): appointment types, rooms, working hours, time off/closures, synthetic patients, slot search, holds + expiry worker, booking/reschedule/cancel/status with DB exclusion constraint, calendar/find/new/setup UI | ✅ Done, verified |
+| 5 | License-aware eligibility at search/booking/check-in | ⏳ Next |
+| 6–9 | RCM, EHR, hardening, SaaS | Not started |
 
 ## What works (verified in a real browser against PostgreSQL 16)
 - Sign in / out (Better Auth, DB sessions, httpOnly cookies), generic error on bad credentials, sign-in rate limiting, redirect when signed out.
@@ -34,19 +35,26 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 - **Payers & Plans** and **enrollments** per provider × plan × site; approval needs confirmation + effective dates and second-person verification.
 - **Credentialing cases** (`/credentialing/cases`): queue with owner/due/status; "Link task" creates a project task, and completing the case moves that task to Done.
 - **Deadline job** (`credentialing.deadlines`, daily in the worker; `POST /api/v1/jobs/credentialing-deadlines`): expires past-due evidence and creates one renewal task per 90/60/30-day threshold (idempotent across reruns and concurrent workers).
+- **Scheduling (synthetic demo, `SCHEDULING_MODE=DEMO_ONLY`)**:
+  - `/scheduling/find`: server-side search (working hours, time off, closures, rooms, existing bookings incl. buffers, notice/horizon) grouped by day and provider, every time with "why offered" and zone label; one click holds a time.
+  - `/scheduling/appointments/new`: hold countdown, synthetic patient picker/creator, patient location at visit time (proposed/verified), idempotent booking; manual entry flags DST-nonexistent and repeated times.
+  - `/scheduling/calendar`: day (by provider) and week views, site/provider filters, zone + DST notice, legend, accessible agenda table; drawer (`?appt=`) with details, append-only history, check-in/complete/no-show, cancel with reason, atomic reschedule.
+  - `/scheduling/setup`: appointment types, rooms, weekly working hours, time off/closures (impacted bookings flagged, never auto-cancelled).
+  - Eligibility is always shown as **policy pending**; nothing claims a provider is legally eligible.
 - **Recurring tasks** + **worker** (`pnpm worker`): Postgres job queue, dedupe keys, `SKIP LOCKED`, backoff, dead-letter, stale-lock recovery.
 
 ## Verification (commands actually run, 2026-10-21, Next.js 16.4.2)
 | Command | Result |
 |---|---|
-| `pnpm lint` | ✅ 0 errors / 0 warnings |
-| `pnpm typecheck` | ✅ all 8 packages |
-| `pnpm test` | ✅ 38/38 unit (incl. 26 readiness-evaluator cases) |
-| `pnpm test:integration` | ✅ 44/44 (real PostgreSQL 16, includes second synthetic org) |
-| `pnpm db:reset` (migrations 0000–0004 + core + credentialing seed) on an empty database | ✅ |
+| `pnpm lint` / `pnpm format:check` | ✅ 0 errors / 0 warnings; formatted |
+| `pnpm typecheck` | ✅ all 9 packages |
+| `pnpm test` | ✅ 49/49 unit (incl. 11 slot/DST cases) |
+| `pnpm test:integration` | ✅ 64/64 (real PostgreSQL 16; 20 scheduling cases: concurrency, rooms, buffers, holds, reschedule atomicity, DST, authz) |
+| `pnpm db:reset` (migrations 0000–0006 + core + credentialing + scheduling seed) | ✅ |
 | `pnpm build` | ✅ |
-| `pnpm test:e2e` (Chromium 1440×900, fresh `db:reset`, server started with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 25/25 on two consecutive fresh runs |
-| Windows one-click (`START-WINDOWS.cmd`, Docker Desktop, Postgres on 127.0.0.1:5433) | ✅ Phases 0–2 verified on the user's PC; Phase 3 delivered via the same script |
+| `pnpm test:e2e` (fresh `db:reset`, server with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 29/29 on two consecutive fresh runs |
+| `pnpm worker -- --once` | ✅ runs recurring, credential deadlines and hold expiry |
+| Windows one-click (`START-WINDOWS.cmd`) | ✅ Phases 0–2 verified on the user's PC; later phases delivered via the same script (now also starts the worker) |
 | CI workflow (`.github/workflows/ci.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
 ## Issues found and fixed during verification
@@ -57,6 +65,8 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 - Drizzle renders `${column}` unqualified in single-table selects, so correlated subqueries compared the inner table's `id` with itself (provider evidence counts were empty) → `qualified()` helper + regression test.
 - Next.js 15.5 intermittently dropped navigation/refresh commits (12–30 % in loops) → upgraded to Next 16.4.2 (ADR-0008) plus a confirmed-refresh fallback.
 - E2E tests that navigated before a PATCH finished (case → task sync) now wait for the response.
+- Raw SQL with JS `Date` parameters fails under postgres.js → ISO strings with `::timestamptz` casts.
+- Hold-expiry sweep and conflict alternatives used the wall clock instead of the injected `now` → threaded `now` through.
 
 ## Known limitations / open items
 1. **Invites are simulated** (code shown on screen, no email) — ADR-0006. Must change before any cloud deployment.
@@ -66,15 +76,17 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 5. Rate limiting is in-memory per process (single instance only).
 6. Board "calendar" view uses due dates only (no start dates/durations).
 7. Saved filters per user and global search are not implemented.
-8. Scheduling, booking-time eligibility, RCM and EHR modules do not exist yet — the UI says so instead of showing dead links.
+8. Booking-time license/payer eligibility (Phase 5), RCM and EHR modules do not exist yet. Scheduling is a **synthetic demo**: eligibility is "policy pending".
 9. **License policy rules are demo content, not verified law.** A real deployment needs counsel-reviewed rules entered and approved by two people.
 10. Credential evidence is entered manually; there is no primary-source (NPDB/state board/NURSYS) integration.
 11. E2E tests mutate the demo data: run `pnpm db:reset` before a full run.
+12. Scheduling gaps: no waitlist, no group/capacity>1 visits, no equipment reservations UI, no patient notifications, no check-in location re-check (Phase 5), working-hours list is long (no per-provider filter yet).
+13. Expired holds are released by `pnpm worker` (or on the next conflicting booking). Without the worker an abandoned hold blocks its slot until then.
 
 ## Next 3 tasks
-1. **Prompt 04 — Scheduling** (`prompts/04_SCHEDULING.md`): calendars, resources, availability, appointment model with the DB exclusion constraint.
+1. **Prompt 05 — License-aware matching** (`prompts/05_LICENSE_AWARE_MATCHING.md`): EligibilityService reusing the Phase 3 evaluators at search, booking, reschedule and check-in; immutable `eligibility_evaluations`; remove POLICY_PENDING.
 2. Generate OpenAPI from Zod schemas and contract-test `/api/v1`.
 3. Push to a private GitHub repo and get CI green on GitHub Actions.
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model

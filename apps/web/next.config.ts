@@ -23,7 +23,7 @@ const csp = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ["@projectos/ui", "@projectos/shared", "@projectos/core", "@projectos/auth", "@projectos/db", "@projectos/credentialing"],
+  transpilePackages: ["@projectos/ui", "@projectos/shared", "@projectos/core", "@projectos/auth", "@projectos/db", "@projectos/credentialing", "@projectos/scheduling"],
   serverExternalPackages: ["postgres"],
   typedRoutes: false,
   async headers() {

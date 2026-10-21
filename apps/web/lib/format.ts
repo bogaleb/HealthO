@@ -60,3 +60,30 @@ export const humanize = (s: string) =>
 export function daysUntil(d: string, today: string) {
   return Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
 }
+
+/* ---------------------------------- scheduling ---------------------------------- */
+export const APPT_STATUS_TONE: Record<string, Tone> = {
+  HOLD: "violet",
+  PENDING: "amber",
+  CONFIRMED: "blue",
+  CHECKED_IN: "teal",
+  COMPLETED: "green",
+  NO_SHOW: "red",
+  CANCELLED: "neutral",
+  NEEDS_RESCHEDULE: "amber",
+};
+
+/** "Mon, Mar 15 · 9:00 AM EDT" in an explicit zone (zone always shown: DST-repeated hours stay unambiguous). */
+export function formatSlot(i: string | Date, timeZone: string, opts: { date?: boolean } = {}) {
+  const d = typeof i === "string" ? new Date(i) : i;
+  const time = d.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  if (opts.date === false) return time;
+  const date = d.toLocaleDateString("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" });
+  return `${date} · ${time}`;
+}
+
+/** Long weekday + date for a YYYY-MM-DD value. */
+export function formatDay(d: string) {
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, day!)).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+}
