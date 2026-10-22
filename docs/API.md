@@ -79,5 +79,31 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | GET | /api/v1/waitlist/:id/matches | read | eligible matching slots |
 | POST | /api/v1/waitlist/:id/offer | manage | re-evaluates, holds the time until `expiresInMinutes` |
 | POST | /api/v1/waitlist/offers/:offerId/accept \| decline | manage | accept books from the hold after re-evaluation (INVALIDATED if no longer eligible) |
+| **Revenue cycle (Phase 6 — synthetic claim refs only)** | | | |
+| GET/POST | /api/v1/rcm/queues, PATCH /:id | rcm.read / `rcm.manage` for the queue's department | queue cards with live counts (open, unassigned, overdue, due soon, >90 d, escalated, open balance, resolved 30 d); department immutable |
+| GET | /api/v1/rcm/cases?queueId&category&status(=OPEN_ANY default,ALL)&priority&caseType&owner(me\|none\|uuid)&age(bucket\|over90)&due(overdue\|soon\|none)&payerId&siteId&q&page&pageSize | rcm.read (scoped) | `{total, items}`; same predicate as the queue counts |
+| POST | /api/v1/rcm/cases | rcm.edit for the queue (assigning someone else needs rcm.manage) | `Idempotency-Key` replays; 409 `DUPLICATE_OPEN_CASE` for a second open case on the same claim ref + type; claim ref must match `SYN-…` |
+| GET/PATCH | /api/v1/rcm/cases/:id | read / owner, unassigned+rcm.edit, or rcm.manage | PATCH `{version, status?, priority?, nextAction?, nextActionDue?, denialCode?, resolutionNote?}`; closing requires a note; RESOLVED completes the linked task (`taskSync`) |
+| POST | /api/v1/rcm/cases/:id/actions | as above | follow-up `{type, note, nextAction?, nextActionDue?, status?}` (row-locked, append-only) |
+| POST | /api/v1/rcm/cases/:id/assign | claim/release: rcm.edit · others: rcm.manage | `{version, ownerUserId\|null}`; assignee must hold rcm.edit in the case scope |
+| POST | /api/v1/rcm/cases/:id/escalate | as PATCH | `{version, reason, escalateToUserId?}` (default queue lead; must hold rcm.manage); in-app notification |
+| POST | /api/v1/rcm/cases/:id/link-task | as PATCH + projects.edit | idempotent per case |
+| POST | /api/v1/rcm/bulk-assign | rcm.manage for every case | `{caseIds≤200, ownerUserId\|null, versions?}` all-or-nothing → `{batchId, assigned, unchanged}` |
+| POST | /api/v1/rcm/assignments/:batchId/undo | rcm.manage | 409 if any case changed since the batch |
+| GET | /api/v1/rcm/workload?queueId | rcm.read | open/overdue/>90/urgent per owner (+ unassigned) |
+| **Reports & dashboard (Phase 6)** | | | |
+| GET | /api/v1/dashboards/operations?siteId&departmentId&practitionerId&from&to | any of scheduling/credentialing/rcm/projects read | tiles per permitted domain with value, definition, applied/ignored filters, freshness |
+| GET | /api/v1/reports | as above | metric definitions you may read |
+| GET | /api/v1/reports/:metric?filters&page | the metric's permission | rows (50/page) + `total` from the same query, filters applied/ignored, source, `computedAt`, `sourceUpdatedAt`, EHR sites not current; audited |
+| **Notifications & worker (Phase 6)** | | | |
+| GET | /api/v1/notifications?unread=true | signed in | your own in-app notifications + unread count |
+| POST | /api/v1/notifications/read | signed in | `{ids:[…]}` or `{all:true}` (own rows only) |
+| GET | /api/v1/admin/worker | org.manage | job + outbox status counts, FAILED/DEAD/PROCESSING rows, last completion times |
+| POST | /api/v1/admin/outbox/:id/replay, /api/v1/admin/jobs/:id/replay | org.manage | FAILED/DEAD → PENDING (audited; delivery is idempotent) |
+| POST | /api/v1/jobs/notifications-scan | org.manage | run the reminder scan + one outbox dispatch now (the worker does this every tick) |
+
+Metric keys: `appointments-in-range`, `appointments-needing-attention`, `blocked-booking-attempts`, `licenses-expiring`,
+`credentialing-cases-overdue`, `enrollments-not-ready`, `rcm-open`, `rcm-aged-over-90`, `rcm-next-action-overdue`, `rcm-unassigned`,
+`rcm-credentialing-blocked`, `rcm-resolved`, `tasks-overdue`, `projects-at-risk`.
 
 An OpenAPI document is not generated yet (tracked in PROGRESS.md).

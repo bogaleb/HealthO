@@ -87,3 +87,18 @@ export function formatDay(d: string) {
   const [y, m, day] = d.split("-").map(Number);
   return new Date(Date.UTC(y!, m! - 1, day!)).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
 }
+
+export const RCM_STATUS_TONE: Record<string, Tone> = {
+  OPEN: "neutral",
+  IN_PROGRESS: "blue",
+  WAITING_PAYER: "violet",
+  ESCALATED: "red",
+  RESOLVED: "green",
+  CLOSED_NO_ACTION: "neutral",
+};
+
+/** Synthetic balances are stored in cents. */
+export function formatMoney(cents: number | null | undefined) {
+  if (cents === null || cents === undefined) return "—";
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}

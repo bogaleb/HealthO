@@ -1,6 +1,6 @@
 # PROGRESS — ProjectOS Health
 
-_Last updated: 2026-10-21 · Current phase: **Phase 5 complete → next is Phase 6 (Prompt 06_RCM_REPORTING)**_
+_Last updated: 2026-10-21 · Current phase: **Phase 6 complete → next is Phase 7 (Prompt 07)**_
 
 Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (no integration code exists yet). Not approved for PHI.
 
@@ -14,8 +14,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 | 3 | Practitioners, professional authorities + verification, license policy rules (dual control), payers/plans/enrollments, credentialing cases, readiness matrix, deadline job | ✅ Done, verified |
 | 4 | Scheduling (synthetic demo): appointment types, rooms, working hours, time off/closures, synthetic patients, slot search, holds + expiry worker, booking/reschedule/cancel/status with DB exclusion constraint, calendar/find/new/setup UI | ✅ Done, verified |
 | 5 | Deterministic EligibilityService (license + payer + location + EHR + capacity), immutable evaluations, rescreen on book/reschedule/check-in/location/evidence change, follow-up tasks, waitlist offers | ✅ Done, verified |
-| 6 | RCM work queues and reporting | ⏳ Next |
-| 7–9 | EHR, hardening, SaaS | Not started |
+| 6 | RCM work queues/cases (synthetic claim refs), bulk assign + undo, escalation, project/credentialing links, operations dashboard + reports that reconcile, outbox-backed in-app reminders, worker health/replay, keyboard a11y tests | ✅ Done, verified |
+| 7 | EHR integration adapter (stub until vendor access) | ⏳ Next |
+| 8–9 | Hardening, SaaS | Not started |
 
 ## What works (verified in a real browser against PostgreSQL 16)
 - Sign in / out (Better Auth, DB sessions, httpOnly cookies), generic error on bad credentials, sign-in rate limiting, redirect when signed out.
@@ -44,18 +45,25 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
   - **Eligibility (Phase 5)**: every search result, hold, booking, reschedule, check-in and location change is decided by one deterministic EligibilityService (ADR-0010) — patient location at visit time, verified evidence, approved DEMO rules, site-specific payer enrollment, EHR source-of-truth mode and capacity. Find Appointment shows eligible times by default and lists providers who are "not offered" with the reason; the new-appointment page previews the same decision; REVIEW results can only be saved as PENDING; the drawer shows the evaluation (stale after 15 min), history, re-check, confirm, check-in with location confirmation, and location change.
   - **Waitlist** (`/scheduling/waitlist`): requests with windows; "Find & offer" holds an eligible time until the offer expires; acceptance re-checks and books; lost eligibility invalidates the offer.
   - **Follow-up tasks** in the auto-created "Eligibility follow-ups" project when license/payer reasons stop a booking (no patient data).
+- **Revenue cycle (Phase 6, synthetic claim refs `SYN-…` only — not a clearinghouse)**:
+  - `/rcm/queues`: four queues (denial initiative, aging follow-up, credentialing-linked payer issues, billing quality) with live counts that link to exactly those rows; filters (status, owner, next-action due, age bucket, priority, type, payer, case #/claim ref); owner workload; supervisors select cases and **bulk-assign all-or-nothing**, with an **Undo** banner.
+  - `/rcm/cases/[id]`: claim / release / assign, record follow-ups (payer call, portal check, appeal…) with next action + due date (queue default), edit priority/next action, **escalate** (to queue lead or chosen supervisor, in-app notification), resolve/close with note, reopen, link a project task (resolving completes it), live status of a linked credentialing case. Append-only timeline + audit.
+  - Analysts (`rcm.edit`) work unassigned/their own cases; supervisors (`rcm.manage`, new permission) assign, bulk-assign, undo, configure queues. Department-scoped.
+- **Operations dashboard** (`/dashboard`) and **reports** (`/reports`, `/reports/[metric]`): 14 SQL metrics across scheduling, credentialing, RCM and projects; each tile number equals its drill-down's row count (same query), with definitions, sources, filters applied/ignored, date window, computed-at, source last-changed and an EHR-not-current warning. Filters: site, department, provider, from/to.
+- **Notifications** (`/notifications`, unread badge in the sidebar): due-soon/overdue RCM next actions and project tasks, assignments and escalations, delivered through a Postgres **transactional outbox** by the worker; exactly-once per due date. In-app only (no email/SMS).
+- **Worker & Outbox** (`/admin/worker`, org admins): job/outbox status counts, failed/dead rows with **Replay**, "Run reminder scan now".
 - **Recurring tasks** + **worker** (`pnpm worker`): Postgres job queue, dedupe keys, `SKIP LOCKED`, backoff, dead-letter, stale-lock recovery.
 
 ## Verification (commands actually run, 2026-10-21, Next.js 16.4.2)
 | Command | Result |
 |---|---|
 | `pnpm lint` / `pnpm format:check` | ✅ 0 errors / 0 warnings; formatted |
-| `pnpm typecheck` | ✅ all 9 packages |
-| `pnpm test` | ✅ 76/76 unit (incl. 27 eligibility fixture cases A–K / LIC-01…12) |
-| `pnpm test:integration` | ✅ 80/80 (real PostgreSQL 16; 16 eligibility transaction cases + 20 scheduling cases) |
-| `pnpm db:reset` (migrations 0000–0008 + all seeds) | ✅ |
+| `pnpm typecheck` | ✅ all 12 packages |
+| `pnpm test` | ✅ 80/80 unit |
+| `pnpm test:integration` | ✅ 109/109 (real PostgreSQL 16; +19 RCM, +10 reports/worker) |
+| `pnpm db:reset` (migrations 0000–0010 + all seeds incl. RCM) | ✅ |
 | `pnpm build` | ✅ |
-| `pnpm test:e2e` (fresh `db:reset`, server with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 31/31 on three consecutive fresh runs |
+| `pnpm test:e2e` (fresh `db:reset`, `pnpm start` with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 37/37 on two consecutive fresh runs (incl. 3 RCM + 3 keyboard-only a11y specs) |
 | Windows one-click (`START-WINDOWS.cmd`) | ✅ Phases 0–2 verified on the user's PC; later phases delivered via the same script |
 | CI workflow (`.github/workflows/ci.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
@@ -72,6 +80,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 - Explain endpoint counted the caller's own hold as a conflict → `holdId` excluded from the capacity check.
 - Task drawer: a comment/checklist reload overwrote field edits in progress (flaky e2e) → edits are preserved; only save/reload resets.
 - Test isolation: integration tests that read the shared job queue now park other suites' jobs; event lists are ordered explicitly.
+- Phase 6: date defaults in the credentialing forms used the **UTC** date (after 8 pm Eastern a new license got tomorrow's effective date → readiness not yet effective) → local calendar date; e2e date helpers likewise use the org time zone.
+- Phase 6: a keyboard move on the board re-mounted the card and dropped focus → focus follows the card to its new column.
+- Phase 6: a demo user name collided with an existing seeded approver → new RCM supervisor "Taylor Nguyen (Demo)".
 
 ## Known limitations / open items
 1. **Invites are simulated** (code shown on screen, no email) — ADR-0006. Must change before any cloud deployment.
@@ -81,19 +92,21 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 5. Rate limiting is in-memory per process (single instance only).
 6. Board "calendar" view uses due dates only (no start dates/durations).
 7. Saved filters per user and global search are not implemented.
-8. RCM (Phase 6) and EHR (Phase 7) modules do not exist yet. Scheduling is a **synthetic demo** using DEMO policy rules.
+8. EHR (Phase 7) does not exist yet. Scheduling is a **synthetic demo** using DEMO policy rules. RCM is an internal work queue on synthetic claim references — no claim lines, 835/837, clearinghouse or payer connectivity.
 9. **License policy rules are demo content, not verified law.** A real deployment needs counsel-reviewed rules entered and approved by two people.
 10. Credential evidence is entered manually; there is no primary-source (NPDB/state board/NURSYS) integration.
 11. E2E tests mutate the demo data: run `pnpm db:reset` before a full run.
 12. Scheduling gaps: no group/capacity>1 visits, no equipment reservations UI, no patient notifications, working-hours list is long (no per-provider filter yet).
 13. Expired holds are released by `pnpm worker` (or on the next conflicting booking). Without the worker an abandoned hold blocks its slot until then.
 14. Eligibility gaps (ADR-0010): no temporary-practice/continuity exception records, no supervision/age/service restrictions, provider's own location is taken from the profile (not confirmed per visit), no EHR adapter (EHR_MASTER sites can only save pending drafts), rescreen runs hourly + on credentialing changes (not on PTO/schedule edits).
+16. Reports are live queries (fine at demo scale; no materialized snapshots or CSV export yet). No automated axe scan yet (keyboard e2e only). Notifications are in-app only; no digest/quiet-hours preferences.
+17. RCM auto-assignment rules (round-robin/by policy) are not built — assignment is manual or bulk.
 15. Legacy Phase 4 demo bookings on an existing database show "Not evaluated" until re-checked or rescreened (the worker does this hourly).
 
 ## Next 3 tasks
-1. **Prompt 06 — RCM & reporting** (`prompts/06_RCM_REPORTING.md`): work queues, cases, operations dashboard with drill-downs.
+1. **Prompt 07** (`prompts/07_*.md`): EHR integration adapter — stub/contract only until vendor API access and source-of-truth policy are verified.
 2. Generate OpenAPI from Zod schemas and contract-test `/api/v1`.
 3. Push to a private GitHub repo and get CI green on GitHub Actions.
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox

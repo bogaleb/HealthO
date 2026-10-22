@@ -95,7 +95,7 @@ Run "Seed SYNTHETIC demo data" { pnpm db:seed }
 # 8. Start the web app in its own window and open the browser
 Log "Starting web app on http://localhost:3000 (new window; close it to stop the app)"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle='ProjectOS Health - web (close to stop)'; pnpm dev"
-Log "Starting background worker (new window): releases expired appointment holds, recurring tasks, credential deadlines"
+Log "Starting background worker (new window): expired holds, recurring tasks, credential deadlines, RCM/task reminders (in-app notifications)"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$Root'; `$host.UI.RawUI.WindowTitle='ProjectOS Health - worker (close to stop)'; pnpm worker"
 $deadline = (Get-Date).AddMinutes(3)
 do { Start-Sleep 3; try { $ok = (Invoke-WebRequest "http://localhost:3000/api/v1/health/ready" -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { $ok = $false } } until ($ok -or (Get-Date) -gt $deadline)

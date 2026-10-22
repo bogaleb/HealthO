@@ -4,7 +4,17 @@ import { reliableRefresh } from "@/lib/refresh";
 import { useRouter } from "next/navigation";
 import { History, Plus } from "lucide-react";
 import { Button, Dialog, Spinner } from "@projectos/ui";
-import { AUTHORITY_TYPES, AUTHORITY_TYPE_LABEL, CASE_TYPES, ENROLLMENT_STATUSES, PROFESSIONS, PROFESSION_LABEL, US_JURISDICTIONS, type Profession } from "@projectos/shared";
+import {
+  AUTHORITY_TYPES,
+  AUTHORITY_TYPE_LABEL,
+  CASE_TYPES,
+  ENROLLMENT_STATUSES,
+  PROFESSIONS,
+  PROFESSION_LABEL,
+  US_JURISDICTIONS,
+  todayIn,
+  type Profession,
+} from "@projectos/shared";
 import { apiFetch, errorMessage } from "@/lib/client";
 import { formatInstant, humanize } from "@/lib/format";
 import { FormDialog, orNull } from "@/components/FormDialog";
@@ -15,7 +25,8 @@ interface Ref {
   services: { id: string; name: string }[];
 }
 const states = US_JURISDICTIONS.map((j) => ({ value: j, label: j }));
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar date (not UTC: after 8 pm Eastern the UTC date is already tomorrow).
+const today = () => todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
 export function NewProviderButton({ reference }: { reference: Ref }) {
   const router = useRouter();

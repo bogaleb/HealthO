@@ -142,9 +142,10 @@ export default async function HomePage() {
               <Badge tone="green">Projects &amp; tasks</Badge>
               <Badge tone="green">Staff, roles &amp; sites</Badge>
               <Badge tone="green">Audit log</Badge>
-              <Badge>Scheduling — Phase 4–5</Badge>
+              <Badge tone="green">Scheduling &amp; eligibility (demo)</Badge>
               <Badge tone="green">Credentialing &amp; readiness</Badge>
-              <Badge>Revenue cycle — Phase 6</Badge>
+              <Badge tone="green">Revenue-cycle queues &amp; reports</Badge>
+              <Badge>EHR integration — Phase 7</Badge>
             </dd>
           </div>
         </dl>

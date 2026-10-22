@@ -2,7 +2,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BadgeCheck,
+  Bell,
+  ChartColumn,
+  Inbox,
+  LayoutDashboard,
   CalendarDays,
   CalendarPlus,
   ClipboardList,
@@ -40,11 +45,18 @@ const ICONS = {
   book: CalendarPlus,
   setup: Settings2,
   waitlist: ListOrdered,
+  queues: Inbox,
+  dashboard: LayoutDashboard,
+  reports: ChartColumn,
+  bell: Bell,
+  worker: Activity,
 };
 export interface NavItem {
   href: string;
   label: string;
   icon: keyof typeof ICONS;
+  /** Optional count shown after the label (e.g. unread notifications). */
+  badge?: number;
 }
 export interface NavSection {
   title?: string;
@@ -73,7 +85,13 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
           )}
         >
           <Icon className="h-4 w-4 shrink-0" aria-hidden />
-          {n.label}
+          <span className="flex-1">{n.label}</span>
+          {n.badge ? (
+            <span className="tabular rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-amber-950" data-testid="nav-badge">
+              {n.badge}
+              <span className="sr-only"> unread</span>
+            </span>
+          ) : null}
         </Link>
       </li>
     );
@@ -90,7 +108,7 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
         ))}
       <div className="mt-auto rounded-md border border-white/10 px-2.5 py-2 text-[11.5px] leading-snug text-slate-400">
         <p className="font-semibold text-slate-300">Not built yet</p>
-        <p className="mt-0.5">Revenue-cycle queues and reporting (Phase 6), EHR integration (Phase 7).</p>
+        <p className="mt-0.5">EHR integration and outbound email/SMS (Phase 7+). In-app notifications only.</p>
       </div>
     </nav>
   );

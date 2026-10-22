@@ -7,6 +7,8 @@ import { appMode, isSyntheticMode } from "@projectos/shared";
 import { requireContext } from "@/lib/session";
 import { SideNav, type NavItem } from "@/components/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
+import { unreadCount } from "@projectos/notifications";
+import { canSeeReports } from "@projectos/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ]
     : [];
   if (hasAny(ctx, "audit.read")) admin.push({ href: "/admin/audit", label: "Audit Log", icon: "audit" });
+  if (hasAny(ctx, "org.manage")) admin.push({ href: "/admin/worker", label: "Worker & Outbox", icon: "worker" });
+  const rcm: NavItem[] = hasAny(ctx, "rcm.read") ? [{ href: "/rcm/queues", label: "Work Queues", icon: "queues" }] : [];
+  const insights: NavItem[] = canSeeReports(ctx)
+    ? [
+        { href: "/dashboard", label: "Operations Dashboard", icon: "dashboard" },
+        { href: "/reports", label: "Reports", icon: "reports" },
+      ]
+    : [];
+  main.push({ href: "/notifications", label: "Notifications", icon: "bell", badge: await unreadCount(getDb(), ctx) });
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -56,7 +67,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {org?.name}
             </div>
           </div>
-          <SideNav sections={[{ items: main }, { title: "Scheduling", items: sched }, { title: "Credentialing", items: cred }, { title: "Administration", items: admin }]} />
+          <SideNav
+            sections={[
+              { items: main },
+              { title: "Insights", items: insights },
+              { title: "Scheduling", items: sched },
+              { title: "Credentialing", items: cred },
+              { title: "Revenue cycle", items: rcm },
+              { title: "Administration", items: admin },
+            ]}
+          />
           <div className="border-t border-white/10 px-3 py-3">
             <div className="truncate px-1 text-[13px] text-slate-200">{ctx.displayName}</div>
             <div className="mt-1.5">
@@ -70,7 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <SignOutButton />
           </header>
           <nav aria-label="Mobile" className="flex gap-3 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 text-sm md:hidden">
-            {[...main, ...sched, ...cred, ...admin].map((n) => (
+            {[...main, ...insights, ...sched, ...cred, ...rcm, ...admin].map((n) => (
               <a key={n.href} href={n.href} className="whitespace-nowrap text-slate-700">
                 {n.label}
               </a>

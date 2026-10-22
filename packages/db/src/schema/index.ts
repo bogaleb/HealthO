@@ -4,3 +4,4 @@ export * from "./audit";
 export * from "./projects";
 export * from "./credentialing";
 export * from "./scheduling";
+export * from "./rcm";

@@ -3,7 +3,8 @@ import { ALERT, USERS, apiLogin, login, settle } from "./helpers";
 
 const BASE = "http://localhost:3000";
 const ORIGIN = { origin: BASE };
-const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+// Calendar date in the org time zone (UTC would be "tomorrow" after 8 pm Eastern).
+const day = (n: number) => new Date(Date.now() + n * 86_400_000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 
 async function api(email: string) {
   const r = await pwRequest.newContext({ baseURL: BASE });

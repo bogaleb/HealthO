@@ -90,7 +90,11 @@ export function Board({
       const prev = col[idx - 1];
       pos = prev ? (prev.position + col[idx]!.position) / 2 : col[idx]!.position - 1024;
     } else pos = (col[col.length - 1]?.position ?? 0) + 1024;
+    // A card that changes column is re-mounted; keep keyboard focus on its move control (WCAG 2.4.3).
+    const refocus = typeof document !== "undefined" && document.activeElement?.id === `mv-${taskId}`;
+    const restoreFocus = () => refocus && requestAnimationFrame(() => document.getElementById(`mv-${taskId}`)?.focus());
     setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, status, position: pos } : t)));
+    restoreFocus();
     setError(null);
     pending.current += 1;
     try {
@@ -100,6 +104,7 @@ export function Board({
       });
       setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, version: updated.version, position: updated.position, status: updated.status } : t)));
       setAnnounce(`${task.projectKey}-${task.number} moved to ${TASK_STATUS_LABEL[status as TaskStatus]}.`);
+      restoreFocus();
       pending.current -= 1;
       reliableRefresh(router);
     } catch (e) {

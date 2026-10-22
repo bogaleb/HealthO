@@ -13,7 +13,7 @@
     "worker": "pnpm --filter @projectos/worker start",
     "db:generate": "pnpm --filter @projectos/db generate",
     "db:migrate": "pnpm --filter @projectos/db migrate",
-    "db:seed": "pnpm --filter @projectos/core seed && pnpm --filter @projectos/credentialing seed && pnpm --filter @projectos/scheduling seed",
+    "db:seed": "pnpm --filter @projectos/core seed && pnpm --filter @projectos/credentialing seed && pnpm --filter @projectos/scheduling seed && pnpm --filter @projectos/rcm seed",
     "db:reset": "pnpm --filter @projectos/db reset && pnpm db:migrate && pnpm db:seed",
     "lint": "eslint .",
     "format": "prettier --write .",

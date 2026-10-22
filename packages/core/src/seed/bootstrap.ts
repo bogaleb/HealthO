@@ -39,7 +39,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: "rcm_supervisor",
     name: "Revenue Cycle Supervisor",
     description: "Configure queues and assign RCM work.",
-    permissions: ["rcm.read", "rcm.edit", "projects.read", "projects.edit"],
+    permissions: ["rcm.read", "rcm.edit", "rcm.manage", "projects.read", "projects.edit"],
   },
   { key: "rcm_analyst", name: "Billing / Follow-up Analyst", description: "Work assigned RCM cases.", permissions: ["rcm.read", "rcm.edit", "projects.read", "projects.edit"] },
   { key: "project_manager", name: "Project Manager", description: "Create projects, boards and tasks.", permissions: ["projects.read", "projects.edit"] },

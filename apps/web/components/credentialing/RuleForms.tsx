@@ -1,13 +1,25 @@
 "use client";
 import { Plus } from "lucide-react";
 import { Button } from "@projectos/ui";
-import { AUTHORIZING_TYPES, AUTHORITY_TYPE_LABEL, MODALITIES, MODALITY_LABEL, PROFESSIONS, PROFESSION_LABEL, SERVICE_CATEGORIES, US_JURISDICTIONS } from "@projectos/shared";
+import {
+  AUTHORIZING_TYPES,
+  AUTHORITY_TYPE_LABEL,
+  MODALITIES,
+  MODALITY_LABEL,
+  PROFESSIONS,
+  PROFESSION_LABEL,
+  SERVICE_CATEGORIES,
+  US_JURISDICTIONS,
+  addDays,
+  todayIn,
+} from "@projectos/shared";
 import { apiFetch } from "@/lib/client";
 import { humanize } from "@/lib/format";
 import { FormDialog, orNull } from "@/components/FormDialog";
 
 const states = US_JURISDICTIONS.map((j) => ({ value: j, label: j }));
-const plus = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+// Local calendar date (not UTC: after 8 pm Eastern the UTC date is already tomorrow).
+const plus = (n: number) => addDays(todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone), n);
 
 export function NewRuleButton() {
   return (

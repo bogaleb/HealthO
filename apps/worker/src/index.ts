@@ -2,6 +2,8 @@ import { createDb, loadRootEnv } from "@projectos/db";
 import { JOB_HANDLERS, enqueueJob, recoverStaleJobs, runDueJobs } from "@projectos/core";
 import { runCredentialDeadlines } from "@projectos/credentialing";
 import { expireWaitlistOffers, releaseExpiredHolds, rescreenUpcoming } from "@projectos/scheduling";
+import { dispatchOutbox, recoverStaleOutbox, scanTaskDue } from "@projectos/notifications";
+import { scanRcmDue } from "@projectos/rcm";
 import { logger, todayIn } from "@projectos/shared";
 
 /**
@@ -21,6 +23,11 @@ JOB_HANDLERS["scheduling.rescreen"] = (d, p) =>
     organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined,
     practitionerId: typeof p.practitionerId === "string" ? p.practitionerId : undefined,
   });
+// Phase 6: due-soon/overdue reminders (RCM next actions + project tasks) → outbox; idempotent per due date.
+JOB_HANDLERS["notifications.scan"] = async (d, p) => {
+  const organizationId = typeof p.organizationId === "string" ? p.organizationId : undefined;
+  return { rcm: await scanRcmDue(d, { organizationId }), tasks: await scanTaskDue(d, { organizationId }) };
+};
 let stopping = false;
 
 async function tick() {
@@ -34,9 +41,13 @@ async function tick() {
   const holds = await releaseExpiredHolds(db);
   await expireWaitlistOffers(db);
   await enqueueJob(db, "scheduling.rescreen", `scheduling.rescreen:${hour}`);
-  const recovered = await recoverStaleJobs(db);
+  await enqueueJob(db, "notifications.scan", `notifications.scan:${hour}`);
+  const recovered = (await recoverStaleJobs(db)) + (await recoverStaleOutbox(db));
   const ran = await runDueJobs(db);
-  if (ran || recovered || holds.released) logger.info("worker.tick", { ran, recovered, holdsReleased: holds.released });
+  // Deliver the transactional outbox (in-app notifications only; no SMS/email in this phase).
+  const outbox = await dispatchOutbox(db);
+  if (ran || recovered || holds.released || outbox.claimed)
+    logger.info("worker.tick", { ran, recovered, holdsReleased: holds.released, outboxDelivered: outbox.delivered, outboxFailed: outbox.failed });
 }
 
 async function main() {

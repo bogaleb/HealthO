@@ -11,6 +11,8 @@ export const USERS = {
   approver: "morgan.reyes@riverbend.example",
   compliance: "dana.brooks@riverbend.example",
   schedManager: "quinn.park@riverbend.example",
+  rcmSupervisor: "taylor.nguyen@riverbend.example",
+  rcm2: "drew.patel@riverbend.example",
 };
 
 /** Wait until client components are hydrated (no pending network) before interacting. */
@@ -38,3 +40,22 @@ export const uid = () => Math.random().toString(36).slice(2, 7).toUpperCase();
 
 /** App alerts only (Next.js also renders an empty role=alert route announcer). */
 export const ALERT = "[role=alert]:not(#__next-route-announcer__)";
+
+/** Press Tab until `target` has focus (keyboard-only navigation). Fails if it is not reachable within `max` presses. */
+export async function tabTo(page: Page, target: import("@playwright/test").Locator, max = 400) {
+  for (let i = 0; i < max; i++) {
+    if (await target.evaluate((el) => el === document.activeElement).catch(() => false)) return i;
+    await page.keyboard.press("Tab");
+  }
+  throw new Error(`Element not reachable with Tab within ${max} presses`);
+}
+
+/** With a native <select> focused, press ArrowDown/ArrowUp until the selected option's text matches. */
+export async function arrowSelect(page: Page, select: import("@playwright/test").Locator, label: RegExp, max = 40) {
+  for (let i = 0; i < max; i++) {
+    const text = await select.evaluate((el) => (el as HTMLSelectElement).selectedOptions[0]?.textContent ?? "");
+    if (label.test(text)) return;
+    await page.keyboard.press("ArrowDown");
+  }
+  throw new Error(`Option ${label} not reached by keyboard`);
+}

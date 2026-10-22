@@ -12,6 +12,8 @@
     "@projectos/core": "workspace:*",
     "@projectos/credentialing": "workspace:*",
     "@projectos/db": "workspace:*",
+    "@projectos/notifications": "workspace:*",
+    "@projectos/rcm": "workspace:*",
     "@projectos/scheduling": "workspace:*",
     "@projectos/shared": "workspace:*",
     "drizzle-orm": "0.45.4",

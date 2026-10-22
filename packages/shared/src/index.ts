@@ -9,3 +9,4 @@ export * from "./credentialing";
 export * from "./time";
 export * from "./scheduling";
 export * from "./eligibility";
+export * from "./rcm";

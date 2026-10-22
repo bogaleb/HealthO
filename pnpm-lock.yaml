@@ -77,6 +77,15 @@ importers:
       '@projectos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@projectos/rcm':
+        specifier: workspace:*
+        version: link:../../packages/rcm
+      '@projectos/reports':
+        specifier: workspace:*
+        version: link:../../packages/reports
       '@projectos/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -138,6 +147,12 @@ importers:
       '@projectos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@projectos/rcm':
+        specifier: workspace:*
+        version: link:../../packages/rcm
       '@projectos/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -238,6 +253,99 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+
+  packages/notifications:
+    dependencies:
+      '@projectos/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@projectos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projectos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@projectos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(kysely@0.29.7)(postgres@3.4.9)
+      kysely:
+        specifier: 0.29.7
+        version: 0.29.7
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+
+  packages/rcm:
+    dependencies:
+      '@projectos/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@projectos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projectos/credentialing':
+        specifier: workspace:*
+        version: link:../credentialing
+      '@projectos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@projectos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      better-auth:
+        specifier: 1.7.12
+        version: 1.7.12(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(kysely@0.29.7)(postgres@3.4.9))(next@16.4.2(@playwright/test@1.56.1)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(vitest@3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(kysely@0.29.7)(postgres@3.4.9)
+      kysely:
+        specifier: 0.29.7
+        version: 0.29.7
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+
+  packages/reports:
+    dependencies:
+      '@projectos/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@projectos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projectos/credentialing':
+        specifier: workspace:*
+        version: link:../credentialing
+      '@projectos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@projectos/rcm':
+        specifier: workspace:*
+        version: link:../rcm
+      '@projectos/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@projectos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(kysely@0.29.7)(postgres@3.4.9)
+      kysely:
+        specifier: 0.29.7
+        version: 0.29.7
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/scheduling:
     dependencies:

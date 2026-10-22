@@ -42,7 +42,9 @@ Sign in at http://localhost:3000 with any seeded account (all use your `DEMO_PAS
 |---|---|---|
 | avery.admin@riverbend.example | Organization Administrator | Staff, roles, sites, audit, everything |
 | pat.morgan@riverbend.example | Project Manager + Executive | Boards, list, calendar, My Work |
-| riley.shah@riverbend.example | RCM Analyst (Revenue Cycle dept only) | Sees only the Billing project |
+| riley.shah@riverbend.example | RCM Analyst (Revenue Cycle dept only) | Work queues: claim, follow up, escalate; Billing project |
+| drew.patel@riverbend.example | RCM Analyst (Revenue Cycle dept only) | Second analyst (bulk-assign target) |
+| taylor.nguyen@riverbend.example | Revenue Cycle Supervisor (Revenue Cycle dept) | Bulk assign + undo, queues, escalations, notifications |
 | casey.lin@riverbend.example | Credentialing Specialist (Credentialing dept only) | Sees only the Onboarding project |
 | sam.ortiz@riverbend.example | Scheduler (Alexandria site only) | Least privilege: no admin, no projects edit |
 | jordan.kim@riverbend.example | Auditor | Audit log (allow + deny events) |
@@ -52,7 +54,7 @@ Sign in at http://localhost:3000 with any seeded account (all use your `DEMO_PAS
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Next.js dev server on :3000 |
-| `pnpm worker` | Background worker (Postgres job queue; generates recurring tasks). `pnpm --filter @projectos/worker once` runs one tick. |
+| `pnpm worker` | Background worker (Postgres job queue: recurring tasks, credential deadlines, hold expiry, eligibility rescreen, RCM/task reminders → notification outbox). `pnpm --filter @projectos/worker once` runs one tick. |
 | `pnpm build && pnpm start` | Production build / serve |
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Seed synthetic demo org (skips if already seeded; refuses outside DEVELOPMENT/DEMO_SYNTHETIC) |

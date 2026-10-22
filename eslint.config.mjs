@@ -24,7 +24,7 @@ export default tseslint.config(
   },
   {
     // Architecture rule: domain packages must not depend on Next.js or React.
-    files: ["packages/{core,auth,db,shared}/**/*.ts"],
+    files: ["packages/{core,auth,db,shared,credentialing,scheduling,notifications,rcm,reports}/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

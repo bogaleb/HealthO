@@ -56,5 +56,17 @@
 | — | Search, explain endpoint and booking derive the same decision; stale evaluation reported; re-check persists fresh | int | ✅ |
 | — | Waitlist: eligible matches only, offer holds + expires (idempotent), accept books, invalidated on lost eligibility | int + e2e | ✅ |
 | SEC-02 | Scheduler cannot publish policy (403 + DENY audit); approval audited and queues rescreen | int + e2e | ✅ |
-| EHR-*, RCM-01 | EHR, RCM | — | ⏳ Phases 6–7 |
+| RCM-01 | Create case, assign owner, add action → counts and audit reflect real rows | `rcm.int.test.ts` + `e2e/rcm.spec.ts` (create → claim → follow-up → escalate → notification) | ✅ |
+| — | RCM assignment authorization: analyst claim vs assign-others (403 + DENY audit), assignee must hold rcm.edit in scope, take-over blocked | `rcm.int.test.ts` + e2e (HTTP 403 bulk) | ✅ |
+| — | Department scoping (other department's queue → 404 for RCM staff; other org → 404) | int | ✅ |
+| — | Bulk assign all-or-nothing (scope, assignee permission, stale versions); batch audit; one notification; undo; undo blocked after later edits | int + e2e (keyboard) | ✅ |
+| — | No duplication on retry (Idempotency-Key replay, one open case per claim ref + type) | int | ✅ |
+| — | Workflow link to projects (task created once; RESOLVED → task DONE) and credentialing link shows live status | int | ✅ |
+| — | Append-only RCM timeline (UPDATE/DELETE blocked by trigger) | int | ✅ |
+| — | Aggregate reconciliation: every dashboard tile = its drill-down total = distinct row ids, with/without site and date filters; RCM metrics = independent SQL; queue cards = list filters | `reports.int.test.ts`, `rcm.int.test.ts`, e2e (tile → report total) | ✅ |
+| — | Scheduling + credentialing + RCM + projects roll up in one dashboard; scheduler sees only own site; analyst sees only RCM/projects; other org sees 0 | `reports.int.test.ts` | ✅ |
+| — | Outbox reminders idempotent (repeat scans/dispatches → one per due date; new due date re-arms); unassigned overdue → queue lead | int | ✅ |
+| — | Worker failure → FAILED → DEAD; replay (admin only, audited) delivers exactly once even after a crash-after-deliver; stale PROCESSING recovered; DEAD job replay | int | ✅ |
+| A11Y | Keyboard-only: board create + move (focus follows card, live announcement); find → hold → patient → book wizard; calendar drawer Enter/Escape + cancel; RCM bulk assign + undo | `e2e/a11y-keyboard.spec.ts` | ✅ |
+| EHR-* | EHR | — | ⏳ Phase 7 |
 | OPS-02 | Backup restore drill | — | ⏳ Phase 8 |
