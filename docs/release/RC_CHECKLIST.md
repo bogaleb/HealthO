@@ -26,7 +26,7 @@ Nothing here declares the organization compliant with HIPAA or any other regime.
 | SEC-SECRETS | No secrets in the repository | PASS | `pnpm security:scan`. Terraform creates secret *containers* only; values are set out-of-band and never enter state. |
 | SEC-DEPS | No known vulnerable production dependencies | PASS | `pnpm audit --prod` reports *No known vulnerabilities found* (vitest 4.1.12, esbuild override). The CI step now fails on high or critical. |
 | SEC-SAST | CodeQL + gitleaks (history) + image scan (Trivy) | BLOCKED | `.github/workflows/security.yml` is written and its YAML parses. It has **never executed**, because no GitHub repository is connected. |
-| SEC-IMG | Slim, non-root release images (web, worker, migrate) | BLOCKED | The Dockerfile was rewritten: standalone Next server and esbuild bundles, no pnpm, no source, no dev deps, `USER node`. The CI guard `pnpm check:dockerfile` passes. Both artifacts were run **outside Docker**: the standalone server (80 MB) served health, CSP and pages, and the bundled `migrate` + `worker` ran from a directory with no `node_modules` against a fresh DB. A real `docker build` was **not possible here** (the sandbox cannot pull base images). It must be run on the PC or in CI (see §E). |
+| SEC-IMG | Slim, non-root release images (web, worker, migrate) | PASS | Built on the user's PC with Docker Desktop (2026-10-22, `_to_delete/rc-docker-build.cmd`): `projectos-web:rc1` 434 MB, `projectos-worker:rc1` 331 MB, `projectos-migrate:rc1` 332 MB (sizes include the `node:22-bookworm-slim` base; no pnpm, source or dev deps). Smoke against the local Postgres (`rc-docker-smoke.cmd`): runs as `uid=1000(node)`; migrate → *migrations applied*; worker logs release `0.3.0-rc.1 / 36816b3`; web container **healthy**, `/health/ready` 200 with 15 migrations, CSP nonce on 17/17 scripts, synthetic sign-in 200, `/api/v1/me` 200. CI guard `pnpm check:dockerfile`. Trivy scan still pending (SEC-SAST). |
 | SEC-ROFS | Read-only root filesystem for web containers | BLOCKED | The worker and migrate tasks are read-only. Web is not yet: Next.js writes `.next/cache`, and Fargate scratch-volume ownership for the non-root user is unverified. Verify in staging. |
 | SEC-PEN | Independent penetration test | BLOCKED *(owner: org)* | Not performed. |
 
@@ -73,7 +73,7 @@ Nothing here declares the organization compliant with HIPAA or any other regime.
 | GATE-INVITE | Email invitations through a vetted vendor (with BAA if PHI-adjacent) | BLOCKED *(vendor decision)* |
 | GATE-RISK | Formal risk analysis, policies, workforce training | BLOCKED *(owner: org)* |
 
-## E. How to clear SEC-IMG on the Windows PC (Docker Desktop)
+## E. Rebuilding the release images on the Windows PC (Docker Desktop)
 ```powershell
 cd C:\Users\sinha\Downloads\HealthO
 docker build --target web     -t projectos-web:rc1 .

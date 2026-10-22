@@ -49,5 +49,5 @@ organization, not to assume a BAA makes anything compliant, and to keep syntheti
 - **Kubernetes:** excluded by the blueprint.
 
 ## Consequences
-- `docker build` could not be executed in the authoring sandbox (no registry access). The release images are therefore BLOCKED in the RC checklist until built on the PC or in CI. The artifacts inside them were run and verified outside Docker.
+- `docker build` could not run in the authoring sandbox (no registry access); the images were built and smoke-tested on the user's PC with Docker Desktop instead (RC SEC-IMG PASS).
 - CI security workflows are written but unexecuted until the repository is on GitHub.

@@ -11,7 +11,7 @@ perform the formal risk analysis for the real deployment.
 | 4 | Data loss / unrecoverable DB | Low / High | Encrypted dump + verified restore drill script | **Done**; off-host copy, RPO/RTO approval external |
 | 5 | Secrets committed to the repo | Low / High | Secret scan in CI (`pnpm security:scan`); gitleaks over full history in `security.yml`; Terraform never holds secret values | **Done** (tree scan); history scan written, not yet executed |
 | 6 | Vulnerable dependencies | Medium / Medium | vitest 4.1.12 + esbuild override → `pnpm audit --prod`: no known vulnerabilities (2026-10-22); CI fails on high/critical; weekly scheduled scan; Trivy on images | **Done (Phase 8)**; image scan not yet executed |
-| 7 | Production image contains dev dependencies | Medium / Low | Standalone Next server + esbuild bundles, no pnpm/source/dev deps, non-root; CI manifest guard | **Done (Phase 8)** — artifacts verified; `docker build` itself pending (RC SEC-IMG) |
+| 7 | Production image contains dev dependencies | Medium / Low | Standalone Next server + esbuild bundles, no pnpm/source/dev deps, non-root; CI manifest guard | **Done (Phase 8)** — images built + smoke-tested on Docker Desktop (RC SEC-IMG) |
 | 8 | CSP allows inline scripts | Low / Medium | Per-request nonce + strict-dynamic; styles still `unsafe-inline` (React style attributes) | **Done (Phase 8)** for scripts; style residual accepted |
 | 9 | In-memory rate limiting (single instance) | Low / Medium | Postgres-backed counters; trusted-proxy IP resolution; WAF rate rule at the edge | **Done (Phase 8)** |
 | 10 | Invites shown on screen (no email) | Low / Medium | Email invites through a vetted vendor | **Open** — vendor decision (RC GATE-INVITE) |

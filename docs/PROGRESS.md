@@ -78,7 +78,8 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | DB rate limit across restart (`rl.sh`) | ✅ 10×401 → 429 → restart → 429 |
 | `pnpm security:scan` · `pnpm security:audit` | ✅ no findings · ✅ no known vulnerabilities |
 | `tofu validate` · `tofu test` · checkov 3.2.400 | ✅ valid · ✅ 4/4 · ✅ 313 passed / 0 failed / 16 justified skips — **never applied** |
-| `docker build` (web/worker/migrate) | ⛔ not possible in the sandbox (no registry access) — see RC SEC-IMG |
+| `docker build` web/worker/migrate on the user's PC (Docker Desktop) + container smoke | ✅ built (434/331/332 MB); non-root; migrate ok; worker tick ok; web healthy, ready 200, CSP nonce 17/17, sign-in 200 |
+| Windows one-click (`START-WINDOWS.cmd`) with Phase 8 | ✅ migrations 0013–0014 applied, Next 16 dev with nonce CSP, sign-in → Home, PHI Readiness page |
 | CI workflows (`ci.yml`, `security.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
 ## Issues found and fixed during verification
@@ -110,7 +111,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 2. MFA (TOTP) exists since Phase 7; no passkeys/WebAuthn yet.
 3. CSP: scripts are nonce-only since Phase 8; styles still allow `'unsafe-inline'` (React style attributes).
 4. No OpenAPI document generated yet (API documented in `docs/API.md`).
-5. Release images were verified as artifacts but not yet built with Docker (RC SEC-IMG); the web container root filesystem is writable (SEC-ROFS).
+5. Release images are built and smoke-tested locally but not yet vulnerability-scanned (Trivy runs in CI); the web container root filesystem is writable (SEC-ROFS).
 6. Board "calendar" view uses due dates only (no start dates/durations).
 7. Saved filters per user and global search are not implemented.
 8. **No real EHR** — only the synthetic simulator; a vendor adapter needs vendor docs, sandbox access and capability sign-off. Scheduling is a **synthetic demo** using DEMO policy rules. RCM is an internal work queue on synthetic claim references — no claim lines, 835/837, clearinghouse or payer connectivity.
@@ -126,7 +127,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 
 ## Next 3 tasks
 1. **Prompt 09 — commercial expansion** (`prompts/09_COMMERCIAL_EXPANSION.md`).
-2. Clear RC SEC-IMG/SEC-SAST: build the images on the PC or push to a private GitHub repo so `ci.yml` + `security.yml` run.
+2. Clear RC SEC-SAST: push to a private GitHub repo so `ci.yml` + `security.yml` (CodeQL, gitleaks, Trivy) run.
 3. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop).
 
 ## Accepted ADRs
