@@ -108,12 +108,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   </td>
                   <td className="px-3 py-1.5 text-slate-600">
                     {e.resourceType}
-                    {e.resourceId && <span className="block font-mono text-[11px] text-slate-400">{e.resourceId.slice(0, 8)}…</span>}
+                    {e.resourceId && <span className="block font-mono text-[11px] text-slate-500">{e.resourceId.slice(0, 8)}…</span>}
                   </td>
                   <td className="max-w-xs truncate px-3 py-1.5 font-mono text-[11.5px] text-slate-500" title={JSON.stringify(e.metadata)}>
                     {JSON.stringify(e.metadata)}
                   </td>
-                  <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">{e.requestId?.slice(0, 8) ?? "—"}</td>
+                  <td className="px-3 py-1.5 font-mono text-[11px] text-slate-500">{e.requestId?.slice(0, 8) ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

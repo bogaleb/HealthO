@@ -78,7 +78,7 @@ export default async function CalendarPage({ params, searchParams }: { params: P
                       >
                         <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[t.status])} aria-hidden />
                         <span className="sr-only">{TASK_STATUS_LABEL[t.status as TaskStatus]}:</span>
-                        <span className={cn("truncate", t.status === "DONE" && "text-slate-400 line-through")}>{t.title}</span>
+                        <span className={cn("truncate", t.status === "DONE" && "text-slate-500 line-through")}>{t.title}</span>
                       </Link>
                     </li>
                   ))}

@@ -99,7 +99,7 @@ export function CalendarGrid({ cal, apptHref }: { cal: Cal; apptHref: (id: strin
     );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white" role="region" aria-label="Schedule grid">
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white" role="region" aria-label="Schedule grid" tabIndex={0}>
       <div className="flex min-w-max">
         <div className="sticky left-0 z-10 w-16 shrink-0 border-r border-slate-200 bg-white">
           <div className="h-12 border-b border-slate-200" />
@@ -149,7 +149,7 @@ export function CalendarGrid({ cal, apptHref }: { cal: Cal; apptHref: (id: strin
                     style={{ top: top(minuteIn(b.start, c.date, "s")), height: (minuteIn(b.end, c.date, "e") - minuteIn(b.start, c.date, "s")) * PX }}
                     title={`Working hours at ${b.siteCode}`}
                   >
-                    <span className="absolute right-1 top-0.5 text-[10px] text-slate-400">{b.siteCode}</span>
+                    <span className="absolute right-1 top-0.5 text-[10px] text-slate-500">{b.siteCode}</span>
                   </div>
                 ))}
                 {exc.map((e) => {

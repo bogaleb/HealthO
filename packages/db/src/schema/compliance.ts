@@ -59,7 +59,7 @@ export const opsDrills = pgTable(
   },
   (t) => [
     index("ops_drills_kind_idx").on(t.kind, t.finishedAt),
-    check("ops_drills_kind_ck", sql`${t.kind} in ('BACKUP_RESTORE','CLINIC_DAY_REHEARSAL','DOWNTIME_PRINT')`),
+    check("ops_drills_kind_ck", sql`${t.kind} in ('BACKUP_RESTORE','CLINIC_DAY_REHEARSAL','DOWNTIME_PRINT','LOAD_TEST','MIGRATION_ROLLBACK','CLEAN_DEPLOY_RESTORE')`),
     check("ops_drills_status_ck", sql`${t.status} in ('PASS','FAIL')`),
   ],
 );

@@ -63,6 +63,12 @@ Sign in at http://localhost:3000 with any seeded account (all use your `DEMO_PAS
 | `pnpm ops:restore-drill` | Backup (encrypted if `BACKUP_ENCRYPTION_KEY` set) → restore into a scratch DB → verify → record result |
 | `pnpm ops:rehearsal` | Synthetic clinic-day rehearsal against the EHR simulator (isolated org) → record result |
 | `pnpm security:scan` | Secret scan of tracked files |
+| `pnpm security:scan-logs <file>…` | Fail if a log contains a patient identity (read from the DB), MRN, DOB field, token or password |
+| `pnpm release:migrate` | Release migration: encrypted pre-migration backup → migrate → schema smoke → automatic restore on failure |
+| `pnpm ops:migration-drill` | Rehearse a failing and a destructive migration on a scratch copy → both rolled back, data identical |
+| `pnpm ops:clean-restore` | Restore the latest backup into a brand-new DB, migrate, start a production server + worker tick, HTTP smoke (needs `pnpm build`) |
+| `pnpm ops:load-test` | 20-way same-slot booking race (exactly one wins) + p95 budgets + client JS budget against the running server |
+| `pnpm check:dockerfile` / `pnpm build:bundles` | CI guard for the Dockerfile / build the worker + migrate bundles into `dist/` |
 | `pnpm db:generate` | Generate a new migration after editing `packages/db/src/schema` |
 | `pnpm lint` / `pnpm typecheck` | ESLint (incl. architecture rule) / TypeScript strict across all packages |
 | `pnpm test` | Unit tests (no database) |
@@ -81,13 +87,15 @@ pnpm test:e2e                             # in a second terminal
 ### Full stack in containers
 
 ```bash
-docker compose --profile app up --build   # db + web (runs migrations on start) + worker
-docker compose exec web pnpm db:seed
+docker compose --profile app up --build   # db → migrate (one-off) → web + worker (slim release images, non-root)
+pnpm db:seed                              # from the host: the default .env points at the compose database
 ```
+Release images and the AWS reference stack: `Dockerfile`, `infra/terraform` (validated, **not applied**),
+docs/ops/RELEASE_RUNBOOK.md, docs/ops/OPERATIONS_HANDBOOK.md, docs/release/RC_CHECKLIST.md, docs/release/COST_REPORT.md.
 
 ## Health checks
 
-- `GET /api/v1/health/live` → process up (no dependencies, no PHI)
+- `GET /api/v1/health/live` → process up + release `{version, gitSha}` (no dependencies, no PHI)
 - `GET /api/v1/health/ready` → DB reachable within 2 s and migration count; `503` otherwise
 
 ## Repository layout

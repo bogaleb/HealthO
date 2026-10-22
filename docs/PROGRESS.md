@@ -1,6 +1,6 @@
 # PROGRESS — ProjectOS Health
 
-_Last updated: 2026-10-22 · Current phase: **Phase 7 complete (synthetic) → next is Phase 8 (Prompt 08_PRODUCTION_HARDENING)** · Readiness verdict: **NOT APPROVED FOR REAL PHI**_
+_Last updated: 2026-10-22 · Current phase: **Phase 8 complete — release candidate v0.3.0-rc.1 for a SYNTHETIC staging deployment → next is Prompt 09** · Readiness verdict: **NOT APPROVED FOR REAL PHI**_
 
 Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** — only a synthetic EHR simulator exists (ADR-0012). **NOT APPROVED FOR REAL PHI** (docs/compliance/READINESS_REPORT.md).
 
@@ -16,8 +16,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | 5 | Deterministic EligibilityService (license + payer + location + EHR + capacity), immutable evaluations, rescreen on book/reschedule/check-in/location/evidence change, follow-up tasks, waitlist offers | ✅ Done, verified |
 | 6 | RCM work queues/cases (synthetic claim refs), bulk assign + undo, escalation, project/credentialing links, operations dashboard + reports that reconcile, outbox-backed in-app reminders, worker health/replay, keyboard a11y tests | ✅ Done, verified |
 | 7 | EHR adapter contract + synthetic simulator, EHR_MASTER fail-closed write-through, availability/change sync, reconciliation, Integration Health, PHI-readiness checklist + checks, MFA, patient-read audit, downtime print, restore drill, clinic-day rehearsal | ✅ Done (synthetic), verified |
-| 8 | Production hardening | ⏳ Next |
-| 9 | Commercial expansion | Not started |
+| 8 | Production hardening: nonce CSP, DB-backed rate limits, least-privilege DB role, slim release images, release versioning, privilege matrix, axe, log PHI scan, load test, clean-deploy restore, migration rollback, Terraform (validated, not applied), RC checklist, ops handbook, cost report | ✅ Done — RC for synthetic staging; see docs/release/RC_CHECKLIST.md |
+| — | Remaining BLOCKED items (BAA, service scope, applied infra, pen test, staff tabletop, on-call, real EHR, counsel-reviewed rules, email vendor) | Owned by the organization |
+| 9 | Commercial expansion | ⏳ Next (Prompt 09) |
 
 ## What works (verified in a real browser against PostgreSQL 16)
 - Sign in / out (Better Auth, DB sessions, httpOnly cookies), generic error on bad credentials, sign-in rate limiting, redirect when signed out.
@@ -57,25 +58,36 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 - **PHI readiness** (`/admin/compliance`): verdict banner (NOT APPROVED FOR REAL PHI), 19-item evidence checklist with dual control, 10 automated checks, drill history.
 - **MFA** (`/account/security`, `/login/two-factor`): TOTP + 8 backup codes; required for privileged roles outside synthetic modes (opt-in with `REQUIRE_MFA_FOR_PRIVILEGED=true`).
 - **Downtime schedule** (`/scheduling/downtime`): printable paper schedule per site/day (audited). **Drills**: `pnpm ops:restore-drill` (encrypted backup + verified restore) and `pnpm ops:rehearsal` (scripted synthetic clinic day, 9 assertions).
+- **Phase 8 hardening:** per-request nonce CSP (no inline scripts), HSTS; sign-in/2FA rate limits in Postgres (survive restarts, shared across instances) with trusted-proxy IP resolution; release identity on `/api/v1/health/live`; runtime works as a DML-only DB role (`infra/sql/app-role.sql`); slim release images (standalone web, bundled worker/migrate, non-root) with a migrate-first compose profile; `release:migrate` with automatic restore; drills for clean-deployment restore, migration rollback and load/performance, recorded in `ops_drills` and the readiness checks; AWS Terraform stack with a PHI gate; RC checklist, cost report, ops handbook, release runbook.
 - **Recurring tasks** + **worker** (`pnpm worker`): Postgres job queue, dedupe keys, `SKIP LOCKED`, backoff, dead-letter, stale-lock recovery.
 
-## Verification (commands actually run, 2026-10-21, Next.js 16.4.2)
+## Verification (commands actually run, 2026-10-22, Phase 8)
 | Command | Result |
 |---|---|
-| `pnpm lint` / `pnpm format:check` | ✅ 0 errors / 0 warnings; formatted |
-| `pnpm typecheck` | ✅ all 14 packages |
-| `pnpm test` | ✅ 80/80 unit |
-| `pnpm test:integration` | ✅ 127/127 (real PostgreSQL 16; +11 EHR write-through/sync/reconciliation, +7 compliance incl. full clinic-day rehearsal) |
-| `pnpm db:reset` (migrations 0000–0012 + all seeds incl. Phase 7) | ✅ |
-| `pnpm build` | ✅ |
-| `pnpm test:e2e` (fresh `db:reset`, `pnpm start` with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 40/40 (incl. 3 Phase 7 specs: EHR-01/02 + Integration Health, readiness dual control, MFA) |
-| `pnpm ops:restore-drill` (with `BACKUP_ENCRYPTION_KEY`) | ✅ PASS — 0 mismatches, audit trigger restored, RTO ≈ 1 s |
-| `pnpm ops:rehearsal` | ✅ PASS 9/9 |
-| `pnpm security:scan` | ✅ no findings · `pnpm audit --prod`: 6 dev-tooling advisories (risk register #6) |
-| Windows one-click (`START-WINDOWS.cmd`) | ✅ Phases 0–2 verified on the user's PC; later phases delivered via the same script |
-| CI workflow (`.github/workflows/ci.yml`) | written, **not yet executed** (no GitHub repo connected) |
+| `pnpm lint` / `pnpm format:check` / `pnpm typecheck` | ✅ clean / formatted / all packages |
+| `pnpm test` | ✅ 86/86 unit (+6: CSP, release info, DB URL composition) |
+| `pnpm test:integration` | ✅ 127/127 (real PostgreSQL 16) |
+| `pnpm db:reset` (migrations 0000–0014 + all seeds) | ✅ |
+| `pnpm build` (+ `NEXT_OUTPUT_STANDALONE=1` standalone build run outside Docker) | ✅ |
+| `pnpm test:e2e` — fresh reset, web server **and worker as the least-privilege role `projectos_app`** | ✅ **45/45** (+5: privilege matrix ×3, axe ×2) |
+| `pnpm security:scan-logs` (web incl. load test, worker, e2e, drill logs — 660 lines, 54 patient identities) | ✅ 0 findings |
+| `pnpm ops:load-test` | ✅ PASS — 20-way race → 1×201 + 19×409; p95 search 299 ms / save 171 ms / page 134 ms; JS 194–240 KB gzip |
+| `pnpm ops:restore-drill` · `ops:rehearsal` | ✅ PASS (AES-256-GCM, 0 mismatches) · ✅ 9/9 |
+| `pnpm ops:clean-restore` | ✅ PASS — new DB, migrate, schema smoke, server ready, sign-in 200, 5 probes 200, worker tick 0, RTO 7 s |
+| `pnpm ops:migration-drill` · `pnpm release:migrate` | ✅ PASS (SQL error + destructive migration rolled back, data identical, grants intact) · ✅ MIGRATED |
+| DB rate limit across restart (`rl.sh`) | ✅ 10×401 → 429 → restart → 429 |
+| `pnpm security:scan` · `pnpm security:audit` | ✅ no findings · ✅ no known vulnerabilities |
+| `tofu validate` · `tofu test` · checkov 3.2.400 | ✅ valid · ✅ 4/4 · ✅ 313 passed / 0 failed / 16 justified skips — **never applied** |
+| `docker build` (web/worker/migrate) | ⛔ not possible in the sandbox (no registry access) — see RC SEC-IMG |
+| CI workflows (`ci.yml`, `security.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
 ## Issues found and fixed during verification
+- Phase 8: **authorization after state read** — RCM bulk-assign undo and waitlist offer returned 409 to a read-only user before checking permission (found by the privilege matrix) → permission checked first.
+- Phase 8: **X-Forwarded-For** with more than one entry made Better Auth's client IP unknown, so a client could defeat per-IP limits behind a proxy → `TRUSTED_PROXY_CIDRS`.
+- Phase 8: the clean-deployment restore drill was **locked out by restored rate-limit counters** → ephemeral counters excluded from dumps.
+- Phase 8: a rollback restore with `--no-privileges` would have **removed the app role's grants** (app down after rollback) → same-server rollbacks keep grants and reset schemas in place; verified by the drill.
+- Phase 8: the old Dockerfile **could not build** (only 5 of 14 workspace manifests copied) → rewritten + CI guard.
+- Phase 8: axe found **colour-contrast failures** (sidebar headings, board counts, table placeholders, calendar labels) and a non-focusable scroll region → fixed.
 - Pre-hydration native submit of React forms would have been a GET (login form → password in the URL). All client-handled forms are now `method="post"`.
 - Board columns overflowed a 1440 px laptop screen (Done column off-screen during drag) → min column width 200 px.
 - Sidebar "Sign out" was pushed below the fold by the synthetic banner → sticky banner + offset sidebar.
@@ -95,10 +107,10 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 
 ## Known limitations / open items
 1. **Invites are simulated** (code shown on screen, no email) — ADR-0006. Must change before any cloud deployment.
-2. **No MFA/passkeys** yet — required before PHI (Better Auth plugin available).
-3. CSP still allows inline scripts (Next.js runtime) — move to nonces in Phase 8.
+2. MFA (TOTP) exists since Phase 7; no passkeys/WebAuthn yet.
+3. CSP: scripts are nonce-only since Phase 8; styles still allow `'unsafe-inline'` (React style attributes).
 4. No OpenAPI document generated yet (API documented in `docs/API.md`).
-5. Rate limiting is in-memory per process (single instance only).
+5. Release images were verified as artifacts but not yet built with Docker (RC SEC-IMG); the web container root filesystem is writable (SEC-ROFS).
 6. Board "calendar" view uses due dates only (no start dates/durations).
 7. Saved filters per user and global search are not implemented.
 8. **No real EHR** — only the synthetic simulator; a vendor adapter needs vendor docs, sandbox access and capability sign-off. Scheduling is a **synthetic demo** using DEMO policy rules. RCM is an internal work queue on synthetic claim references — no claim lines, 835/837, clearinghouse or payer connectivity.
@@ -108,14 +120,14 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 12. Scheduling gaps: no group/capacity>1 visits, no equipment reservations UI, no patient notifications, working-hours list is long (no per-provider filter yet).
 13. Expired holds are released by `pnpm worker` (or on the next conflicting booking). Without the worker an abandoned hold blocks its slot until then.
 14. Eligibility gaps (ADR-0010): no temporary-practice/continuity exception records, no supervision/age/service restrictions, provider's own location is taken from the profile (not confirmed per visit), no EHR adapter (EHR_MASTER sites can only save pending drafts), rescreen runs hourly + on credentialing changes (not on PTO/schedule edits).
-16. Reports are live queries (fine at demo scale; no materialized snapshots or CSV export yet). No automated axe scan yet (keyboard e2e only). Notifications are in-app only; no digest/quiet-hours preferences.
+16. Reports are live queries (fine at demo scale; no materialized snapshots or CSV export yet). Automated axe covers 22 pages; a manual screen-reader pass is still open. Notifications are in-app only; no digest/quiet-hours preferences.
 17. RCM auto-assignment rules (round-robin/by policy) are not built — assignment is manual or bulk.
 15. Legacy Phase 4 demo bookings on an existing database show "Not evaluated" until re-checked or rescreened (the worker does this hourly).
 
 ## Next 3 tasks
-1. **Prompt 08 — production hardening** (`prompts/08_PRODUCTION_HARDENING.md`): nonce CSP, slim production image, vitest 4 upgrade, shared rate limiting, observability.
-2. External PHI-readiness tasks (docs/compliance/READINESS_REPORT.md) — owned by the organization, not the software.
-3. Generate OpenAPI from Zod schemas; push to a private GitHub repo and get CI green.
+1. **Prompt 09 — commercial expansion** (`prompts/09_COMMERCIAL_EXPANSION.md`).
+2. Clear RC SEC-IMG/SEC-SAST: build the images on the PC or push to a private GitHub repo so `ci.yml` + `security.yml` run.
+3. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop).
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build)
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build) · 0013 production hardening without a compliance claim

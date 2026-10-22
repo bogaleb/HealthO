@@ -202,7 +202,7 @@ export function Board({
             >
               <header className="flex items-center justify-between px-3 py-2">
                 <h2 className="text-[13px] font-semibold text-slate-700">
-                  {TASK_STATUS_LABEL[status]} <span className="tabular font-normal text-slate-500">({col.length})</span>
+                  {TASK_STATUS_LABEL[status]} <span className="tabular font-normal text-slate-600">({col.length})</span>
                 </h2>
               </header>
               <ol className="flex flex-1 flex-col gap-2 px-2 pb-2">
@@ -236,7 +236,7 @@ export function Board({
                       {canEdit && <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-grab text-slate-300" aria-hidden />}
                       <div className="min-w-0 flex-1">
                         <Link href={`?task=${t.id}`} scroll={false} className="block text-[13.5px] font-medium leading-snug text-slate-800 hover:text-teal-800 hover:underline">
-                          <span className="mr-1 font-mono text-[11.5px] font-normal text-slate-500">
+                          <span className="mr-1 font-mono text-[11.5px] font-normal text-slate-600">
                             {t.projectKey}-{t.number}
                           </span>
                           {t.title}
@@ -298,7 +298,7 @@ export function Board({
                   </li>
                 ))}
                 {col.length === 0 && (
-                  <li className="rounded border border-dashed border-slate-300 px-2 py-4 text-center text-[12px] text-slate-500">{canEdit ? "Drop tasks here" : "No tasks"}</li>
+                  <li className="rounded border border-dashed border-slate-300 px-2 py-4 text-center text-[12px] text-slate-600">{canEdit ? "Drop tasks here" : "No tasks"}</li>
                 )}
               </ol>
             </section>

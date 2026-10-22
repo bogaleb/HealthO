@@ -1,0 +1,65 @@
+name: Security
+# Phase 8 code scanning. Written and syntax-checked in the repo; it runs only once the repository is on GitHub
+# (status in docs/release/RC_CHECKLIST.md). No secrets are needed or exposed.
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "17 6 * * 1" }] # weekly, catches newly published advisories
+permissions:
+  contents: read
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: { languages: javascript-typescript, queries: security-extended }
+      - uses: github/codeql-action/analyze@v3
+
+  secrets-history:
+    # gitleaks over the full git history (the in-repo `pnpm security:scan` only checks the current tree).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 git /repo --redact --no-banner -v
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Production dependency audit (fails on high/critical)
+        run: pnpm security:audit
+
+  infrastructure:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: infra/terraform } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with: { tofu_version: 1.10.6 }
+      - run: tofu fmt -check -recursive
+      - run: tofu init -backend=false -input=false
+      - run: tofu validate
+      - run: tofu test
+      - name: checkov (IaC misconfiguration scan)
+        run: pipx run checkov==3.2.400 -d . --framework terraform --compact --quiet
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/build/check-dockerfile.mjs
+      - name: Build release images (no push)
+        run: |
+          for t in web worker migrate; do
+            docker build --target "$t" --build-arg APP_VERSION="$(node -p 'require(\"./package.json\").version')" --build-arg GIT_SHA="$GITHUB_SHA" -t "projectos-$t:ci" .
+          done
+      - name: Image vulnerability scan (fails on fixable critical)
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 1 --severity CRITICAL --ignore-unfixed projectos-web:ci

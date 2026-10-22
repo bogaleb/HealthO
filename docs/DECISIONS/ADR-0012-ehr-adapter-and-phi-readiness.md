@@ -35,7 +35,7 @@ is unreachable or stale; produce a readiness report marked NOT APPROVED FOR REAL
    site's freshness timestamp. **Change feed** and **reconciliation** detect EHR-side cancellations/moves/deletions → the local booking goes
    to `NEEDS_RESCHEDULE` + conflict; "Accept EHR" cancels locally without sending a second cancel. Worker: sync every 5 min, reconcile hourly.
 8. **PHI readiness** (`packages/compliance`): 19-item evidence checklist (blueprint §9.2 + GO_LIVE_CHECKLIST) with dual control in app and DB,
-   10 automated technical checks, append-only `ops_drills`, verdict `NOT APPROVED FOR REAL PHI` by default and in every synthetic mode.
+   10 automated technical checks (13 since Phase 8 — ADR-0013), append-only `ops_drills`, verdict `NOT APPROVED FOR REAL PHI` by default and in every synthetic mode.
 9. **Security remediations by risk:** TOTP MFA (Better Auth two-factor plugin; secrets encrypted with the auth secret; backup codes), mandatory
    for privileged roles outside synthetic modes (page redirect + API 403 `MFA_REQUIRED`); patient-read and MFA audit events; secret scan
    and dependency audit in CI; encrypted backup + verified restore drill; paper downtime schedule; clinic-day rehearsal.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +8,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading the request headers makes every page dynamic, which the per-request CSP nonce (proxy.ts) requires.
+  await headers();
   return (
     <html lang="en">
       <body>{children}</body>

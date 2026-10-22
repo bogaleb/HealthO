@@ -1,0 +1,2 @@
+ALTER TABLE "ops_drills" DROP CONSTRAINT "ops_drills_kind_ck";--> statement-breakpoint
+ALTER TABLE "ops_drills" ADD CONSTRAINT "ops_drills_kind_ck" CHECK ("ops_drills"."kind" in ('BACKUP_RESTORE','CLINIC_DAY_REHEARSAL','DOWNTIME_PRINT','LOAD_TEST','MIGRATION_ROLLBACK','CLEAN_DEPLOY_RESTORE'));

@@ -5,10 +5,10 @@ import { createDb, isMain, loadRootEnv } from "./index";
 
 export const MIGRATIONS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
-export async function runMigrations(url?: string) {
+export async function runMigrations(url?: string, migrationsFolder = MIGRATIONS_DIR) {
   const { sql, db } = createDb(url, 1);
   try {
-    await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
+    await migrate(db, { migrationsFolder });
   } finally {
     await sql.end();
   }

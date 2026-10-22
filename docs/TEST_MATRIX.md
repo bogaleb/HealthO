@@ -82,3 +82,13 @@
 | — | MFA enrol/verify/sign-in second factor/disable; required for privileged roles outside synthetic modes | e2e, `compliance.int.test.ts` | ✅ |
 | OPS-02 | Backup restore drill (encrypted, verified) | `pnpm ops:restore-drill` (PASS recorded) | ✅ manual command |
 | — | Synthetic clinic-day rehearsal (9 assertions) | `compliance.int.test.ts` + `pnpm ops:rehearsal` | ✅ |
+| SEC (Phase 8) | Privilege-escalation matrix: every mutating route (auto-discovered) → 401 unauthenticated; Auditor never 2xx/5xx and never state-revealing; scheduler never 2xx on admin routes; no ALLOW mutation audited | `e2e/authz-matrix.spec.ts` | ✅ |
+| — | Least-privilege runtime DB role: whole e2e suite as `projectos_app`; cannot disable audit triggers | e2e run (RC SEC-DBROLE) | ✅ manual run |
+| — | Nonce CSP + release info + DB URL composition | `apps/web/test/hardening.unit.test.ts` | ✅ |
+| — | DB-backed sign-in rate limit survives a restart | `rl.sh` evidence (RC SEC-RL) | ✅ manual run |
+| A11Y | axe WCAG 2.1 A/AA, 0 serious/critical on 22 critical pages | `e2e/a11y-axe.spec.ts` | ✅ |
+| — | No patient identity / credential in web, worker or e2e logs | `pnpm security:scan-logs` (CI after e2e) | ✅ |
+| OPS-03 | Concurrency: 20 same-slot bookings → exactly 1 × 201; p95 search/save/page + JS budgets | `pnpm ops:load-test` | ✅ (sandbox scale) |
+| OPS-04 | Clean-deployment restore: encrypted dump → new DB → migrate → server + sign-in + probes + worker tick | `pnpm ops:clean-restore` | ✅ |
+| OPS-05 | Migration rollback: SQL error and destructive migration → restored, data identical, grants intact | `pnpm ops:migration-drill`, `pnpm release:migrate` | ✅ |
+| INF | Terraform validate + mocked-provider plans + PHI gate preconditions; checkov | `tofu validate`, `tofu test` (4/4), checkov 313/0 | ✅ (not applied) |

@@ -6,7 +6,8 @@ import { dispatchOutbox, recoverStaleOutbox, scanTaskDue } from "@projectos/noti
 import { scanRcmDue } from "@projectos/rcm";
 // Importing integrations registers the `ehr.write` outbox handler (EHR write-through, Phase 7).
 import { reconcileAll, syncAllConnections } from "@projectos/integrations";
-import { logger, todayIn } from "@projectos/shared";
+import { logger, releaseInfo, todayIn } from "@projectos/shared";
+import { sql as dsql } from "drizzle-orm";
 
 /**
  * ProjectOS worker: polls the Postgres job table. No Redis required.
@@ -33,6 +34,11 @@ JOB_HANDLERS["notifications.scan"] = async (d, p) => {
 // Phase 7: EHR health + availability + change feed (every 5 min) and reconciliation (hourly). Synthetic simulator only.
 JOB_HANDLERS["ehr.sync"] = (d, p) => syncAllConnections(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
 JOB_HANDLERS["ehr.reconcile"] = (d, p) => reconcileAll(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
+// Phase 8: housekeeping — Better Auth rate-limit counters older than a day carry no information (windows are ≤ 1 min).
+JOB_HANDLERS["maintenance.prune"] = async (d) => {
+  const rows = await d.execute(dsql`delete from rate_limits where last_request < ${Date.now() - 86_400_000} returning id`);
+  return { rateLimitsPruned: rows.length };
+};
 let stopping = false;
 
 async function tick() {
@@ -50,6 +56,7 @@ async function tick() {
   const fiveMin = new Date(Math.floor(Date.now() / 300_000) * 300_000).toISOString().slice(0, 16);
   await enqueueJob(db, "ehr.sync", `ehr.sync:${fiveMin}`);
   await enqueueJob(db, "ehr.reconcile", `ehr.reconcile:${hour}`);
+  await enqueueJob(db, "maintenance.prune", `maintenance.prune:${hour}`);
   const recovered = (await recoverStaleJobs(db)) + (await recoverStaleOutbox(db));
   const ran = await runDueJobs(db);
   // Deliver the transactional outbox (in-app notifications only; no SMS/email in this phase).
@@ -59,7 +66,7 @@ async function tick() {
 }
 
 async function main() {
-  logger.info("worker.start", { pollMs: POLL_MS, once });
+  logger.info("worker.start", { pollMs: POLL_MS, once, release: releaseInfo() });
   do {
     try {
       await tick();

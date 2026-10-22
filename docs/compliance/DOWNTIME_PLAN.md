@@ -23,4 +23,21 @@
 3. Enter paper bookings (EHR first if it is the master). Resolve any conflicts on the Integration Health page.
 4. Record the downtime (start/end, impact) in the incident log.
 
+## Clinic-site outage (internet or power down at one clinic; the system itself is up) — Phase 8
+1. The clinic lead calls the on-call line and switches the site to the **printed downtime schedule** (printed every
+   morning — see above). Another site or the central scheduler (who can still reach ProjectOS) books for the affected clinic
+   by phone; times booked centrally are visible to the clinic on its next print or when the connection returns.
+2. Telehealth providers at the affected site move to a backup connection (mobile hotspot on an approved device) or the
+   central scheduler reschedules with the patient; nothing is marked "seen" until it is recorded.
+3. Paper check-ins (arrival time, patient's **current state** for video/audio visits) are entered within 24 h of recovery
+   by the clinic lead; eligibility is re-evaluated automatically on entry.
+4. If the outage lasts longer than half a clinic day, the operations lead decides on closing the site in the system
+   (Scheduling › Setup › closure) so no new bookings land there; impacted bookings are flagged, never auto-cancelled.
+
+## Whole-system outage (ProjectOS unavailable for everyone)
+- ALB/web failure: ECS replaces failed tasks; a bad release is rolled back (docs/ops/RELEASE_RUNBOOK.md §4).
+- Database failure: Multi-AZ fails over automatically (1–2 min); a corrupted database is restored from PITR (RTO target
+  ≤ 4 h, RPO ≤ 5 min — proposed, to be approved). During the outage all sites use the morning print + paper bookings
+  (above), and the EHR remains the record at EHR_MASTER sites.
+
 Rehearsed in the synthetic clinic-day drill (10:00–11:05 steps) — see CLINIC_DAY_REHEARSAL.md.

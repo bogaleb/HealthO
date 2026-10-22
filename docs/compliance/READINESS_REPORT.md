@@ -1,6 +1,6 @@
 # PHI Readiness Report — **NOT APPROVED FOR REAL PHI**
 
-_Date: 2026-10-22 · Build: Phase 7 · Mode: DEVELOPMENT / DEMO_SYNTHETIC only_
+_Date: 2026-10-22 · Build: Phase 8 (v0.3.0-rc.1) · Mode: DEVELOPMENT / DEMO_SYNTHETIC only_
 
 ProjectOS Health is **not approved for real patient information** and must not be described as "HIPAA compliant".
 This report summarizes what the software now does to support a future approval, and lists everything that can only be
@@ -13,11 +13,13 @@ which computes the verdict from the evidence checklist and automated technical c
 1. Every critical checklist item is `APPROVED` — evidence submitted by one person, approved by a **different** person
    (enforced by the application and by a database CHECK constraint).
 2. Every automated technical check passes: approved APP_MODE, MFA on every privileged account, HTTPS, non-default
-   secret, restore drill passed in the last 7 days, clinic-day rehearsal in the last 30 days, no DEMO licensure rules,
+   secret, restore drill passed in the last 7 days, clinic-day rehearsal in the last 30 days, load test / clean-deployment
+   restore / migration-rollback drills passed in the last 30 days (Phase 8), no DEMO licensure rules,
    every site has a real source-of-truth decision (a synthetic simulator never counts), no dead-lettered work, audit log
    append-only.
 
-Current state (fresh demo database): 0/19 items approved, 7 of 10 technical checks failing — **NOT APPROVED**.
+Current state (demo database after the Phase 8 drills): 0/19 items approved, 6 of 13 technical checks failing — **NOT APPROVED**.
+Phase 8 release evidence (PASS/BLOCKED per item): docs/release/RC_CHECKLIST.md.
 
 ## What Phase 7 implemented and verified (synthetic only)
 | Area | Status | Evidence |

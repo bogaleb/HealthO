@@ -110,7 +110,7 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
         .filter((s) => s.items.length)
         .map((s, i) => (
           <div key={i}>
-            {s.title && <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{s.title}</p>}
+            {s.title && <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.title}</p>}
             <ul className="space-y-0.5">{s.items.map(item)}</ul>
           </div>
         ))}

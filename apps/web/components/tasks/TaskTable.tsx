@@ -185,7 +185,7 @@ export function TaskTable({
                     <td className="px-3 py-2">
                       <Badge tone={PRIORITY_TONE[t.priority]}>{PRIORITY_LABEL[t.priority]}</Badge>
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{t.ownerName ?? <span className="text-slate-400">Unassigned</span>}</td>
+                    <td className="px-3 py-2 text-slate-700">{t.ownerName ?? <span className="text-slate-500">Unassigned</span>}</td>
                     <td className={`tabular whitespace-nowrap px-3 py-2 ${overdue ? "font-semibold text-red-700" : "text-slate-700"}`}>
                       {overdue && <span className="sr-only">Overdue, </span>}
                       {formatDate(t.dueDate)}
@@ -213,14 +213,14 @@ export function TaskTable({
               ← Previous
             </Link>
           ) : (
-            <span className="px-2.5 py-1 text-slate-400">← Previous</span>
+            <span className="px-2.5 py-1 text-slate-500">← Previous</span>
           )}
           {result.page < pages ? (
             <Link className="rounded border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50" href={qs({ page: String(result.page + 1), task: undefined })}>
               Next →
             </Link>
           ) : (
-            <span className="px-2.5 py-1 text-slate-400">Next →</span>
+            <span className="px-2.5 py-1 text-slate-500">Next →</span>
           )}
         </nav>
       )}

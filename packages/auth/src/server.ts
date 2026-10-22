@@ -6,7 +6,7 @@ import { twoFactor } from "better-auth/plugins/two-factor";
 import { createAuthMiddleware, isAPIError } from "better-auth/api";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@projectos/db";
-import { accounts, auditEvents, memberships, sessions, twoFactors, users, verifications } from "@projectos/db/schema";
+import { accounts, auditEvents, memberships, rateLimits, sessions, twoFactors, users, verifications } from "@projectos/db/schema";
 
 /** MFA lifecycle events are security-relevant: record them in our append-only audit log (no codes, no secrets). */
 const MFA_AUDIT: Record<string, string> = {
@@ -50,7 +50,7 @@ function buildAuth() {
     trustedOrigins: [baseURL],
     database: drizzleAdapter(getDb(), {
       provider: "pg",
-      schema: { user: users, session: sessions, account: accounts, verification: verifications, twoFactor: twoFactors },
+      schema: { user: users, session: sessions, account: accounts, verification: verifications, twoFactor: twoFactors, rateLimit: rateLimits },
     }),
     emailAndPassword: {
       enabled: true,
@@ -64,9 +64,25 @@ function buildAuth() {
       updateAge: 60 * 30, // rolling refresh every 30 min of activity
     },
     // Sign-in attempts per IP per minute (lower in production; E2E raises it via env because it signs in repeatedly).
-    rateLimit: { enabled: true, window: 60, max: 100, customRules: { "/sign-in/email": { window: 60, max: Number(process.env.AUTH_SIGNIN_MAX_PER_MIN ?? 10) } } },
+    // Counters live in Postgres (rate_limits) so they survive restarts and are shared by every web instance.
+    rateLimit: {
+      enabled: true,
+      storage: "database",
+      modelName: "rateLimit",
+      window: 60,
+      max: 100,
+      customRules: { "/sign-in/email": { window: 60, max: Number(process.env.AUTH_SIGNIN_MAX_PER_MIN ?? 10) }, "/two-factor/*": { window: 60, max: 10 } },
+    },
     advanced: {
       database: { generateId: "uuid" },
+      // Behind the ALB the client IP is the right-most X-Forwarded-For entry that is not one of our proxies. Without
+      // this, a client-supplied X-Forwarded-For makes the IP unknown and per-IP limits ineffective (Phase 8 finding).
+      ipAddress: {
+        trustedProxies: (process.env.TRUSTED_PROXY_CIDRS ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      },
       useSecureCookies: baseURL.startsWith("https://"),
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax" },
     },

@@ -1,10 +1,9 @@
-import { spawnSync } from "node:child_process";
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import postgres from "postgres";
 import { createDb, isMain, loadRootEnv } from "@projectos/db";
 import { recordDrill } from "./service";
+import { TABLES, decrypt, encrypt, have, run } from "./backup";
 
 /**
  * Backup + restore drill (blueprint §9.4). Dumps the database, optionally encrypts the dump (AES-256-GCM with
@@ -14,49 +13,6 @@ import { recordDrill } from "./service";
  * Works with local PostgreSQL client tools, or — on Windows/Docker Desktop — through `docker compose exec db`.
  * Synthetic data only. The off-host copy of the encrypted file is an external operational step.
  */
-const TABLES = [
-  "organizations",
-  "users",
-  "memberships",
-  "audit_events",
-  "projects",
-  "tasks",
-  "practitioners",
-  "credentialing_cases",
-  "appointments",
-  "appointment_events",
-  "rcm_cases",
-  "outbox_events",
-];
-
-function have(cmd: string) {
-  const r = spawnSync(cmd, ["--version"], { encoding: "utf8", shell: process.platform === "win32" });
-  return r.status === 0;
-}
-
-function run(cmd: string, args: string[], opts: { input?: Buffer; env?: NodeJS.ProcessEnv } = {}) {
-  const r = spawnSync(cmd, args, { input: opts.input, env: { ...process.env, ...opts.env }, maxBuffer: 1024 * 1024 * 1024, shell: process.platform === "win32" });
-  if (r.status !== 0) throw new Error(`${cmd} ${args[0] ?? ""} failed: ${r.stderr?.toString().slice(0, 400)}`);
-  return r.stdout as Buffer;
-}
-
-function encrypt(buf: Buffer, keyHex: string) {
-  const key = createHash("sha256").update(keyHex).digest();
-  const iv = randomBytes(12);
-  const c = createCipheriv("aes-256-gcm", key, iv);
-  const body = Buffer.concat([c.update(buf), c.final()]);
-  return Buffer.concat([Buffer.from("POSB1"), iv, c.getAuthTag(), body]);
-}
-function decrypt(buf: Buffer, keyHex: string) {
-  if (buf.subarray(0, 5).toString() !== "POSB1") throw new Error("Not an encrypted ProjectOS backup");
-  const key = createHash("sha256").update(keyHex).digest();
-  const iv = buf.subarray(5, 17);
-  const tag = buf.subarray(17, 33);
-  const d = createDecipheriv("aes-256-gcm", key, iv);
-  d.setAuthTag(tag);
-  return Buffer.concat([d.update(buf.subarray(33)), d.final()]);
-}
-
 export async function runRestoreDrill(opts: { databaseUrl?: string; outDir?: string; runBy?: string } = {}) {
   const url = new URL(opts.databaseUrl ?? process.env.DATABASE_URL!);
   const dbName = url.pathname.slice(1);
@@ -75,8 +31,21 @@ export async function runRestoreDrill(opts: { databaseUrl?: string; outDir?: str
     // 1. Backup
     const t0 = Date.now();
     const dump = useLocal
-      ? run("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", "--dbname", url.toString()], { env: pgEnv })
-      : run("docker", ["compose", "exec", "-T", "db", "pg_dump", "--format=custom", "--no-owner", "--no-privileges", "-U", decodeURIComponent(url.username), dbName]);
+      ? run("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", "--exclude-table-data=rate_limits", "--dbname", url.toString()], { env: pgEnv })
+      : run("docker", [
+          "compose",
+          "exec",
+          "-T",
+          "db",
+          "pg_dump",
+          "--format=custom",
+          "--no-owner",
+          "--no-privileges",
+          "--exclude-table-data=rate_limits",
+          "-U",
+          decodeURIComponent(url.username),
+          dbName,
+        ]);
     summary.dumpMs = Date.now() - t0;
     summary.dumpBytes = dump.length;
     // 2. Encrypt (if a key is configured) and verify the round trip before relying on it.

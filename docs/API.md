@@ -4,7 +4,7 @@ All endpoints except health and invite acceptance require a Better Auth session 
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET | /api/v1/health/live | public | liveness |
+| GET | /api/v1/health/live | public | liveness + release `{version, gitSha, builtAt}` |
 | GET | /api/v1/health/ready | public | DB + migration count, 503 if not ready |
 | GET | /api/v1/me | member | session org, grants, effective permissions |
 | GET/POST | /api/v1/sites | read: member · create: org-wide `sites.manage` | |

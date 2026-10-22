@@ -625,6 +625,8 @@ export async function bulkAssign(db: Db, ctx: AuthContext, input: unknown, opts:
 /** Reverse a bulk assignment — only if none of its cases changed since (otherwise nothing changes). */
 export async function undoBulkAssign(db: Db, ctx: AuthContext, batchId: string, opts: { now?: Date } = {}) {
   if (!z.uuid().safeParse(batchId).success) throw notFound("Assignment batch");
+  // Phase 8 (privilege matrix): authorize before revealing any batch state, and even for batches with no items.
+  await authorize(db, ctx, "rcm.manage", "ANY", { action: "rcm.case.bulk_assign.undo", resourceType: "rcm_assignment_batch", resourceId: batchId });
   const now = opts.now ?? new Date();
   return db.transaction(async (tx) => {
     const [b] = await tx

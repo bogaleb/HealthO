@@ -139,6 +139,11 @@ export default async function CompliancePage() {
               <li>docs/compliance/BACKUP_RESTORE_RUNBOOK.md</li>
               <li>docs/compliance/INCIDENT_RESPONSE.md</li>
               <li>docs/compliance/CLINIC_DAY_REHEARSAL.md</li>
+              <li>docs/release/RC_CHECKLIST.md (PASS/BLOCKED evidence)</li>
+              <li>docs/release/COST_REPORT.md</li>
+              <li>docs/ops/OPERATIONS_HANDBOOK.md</li>
+              <li>docs/ops/RELEASE_RUNBOOK.md</li>
+              <li>docs/ops/AWS_SERVICE_SCOPE.md</li>
             </ul>
           </Card>
         </div>

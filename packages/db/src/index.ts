@@ -3,3 +3,4 @@ export * from "./env";
 export * as schema from "./schema";
 export * from "./schema";
 export * from "./sql";
+export * from "./drift";

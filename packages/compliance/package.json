@@ -10,7 +10,10 @@
     "typecheck": "tsc -p tsconfig.json",
     "seed": "tsx src/seed.ts",
     "drill:restore": "tsx src/restore-drill.ts",
-    "rehearsal": "tsx src/rehearsal.ts"
+    "rehearsal": "tsx src/rehearsal.ts",
+    "release:migrate": "tsx src/release.ts migrate",
+    "drill:migration": "tsx src/release.ts migration-drill",
+    "drill:clean-restore": "tsx src/release.ts clean-restore"
   },
   "dependencies": {
     "@projectos/auth": "workspace:*",

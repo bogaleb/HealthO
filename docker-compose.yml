@@ -19,6 +19,16 @@ services:
       timeout: 3s
       retries: 20
 
+  # Release-style stack (Phase 8): migrate runs once, then web + worker start from slim images.
+  migrate:
+    profiles: ["app"]
+    build: { context: ., target: migrate }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://projectos:projectos_dev_password@db:5432/projectos
+    depends_on:
+      db: { condition: service_healthy }
+
   web:
     profiles: ["app"]
     build: { context: ., target: web }
@@ -27,9 +37,9 @@ services:
       DATABASE_URL: postgresql://projectos:projectos_dev_password@db:5432/projectos
       BETTER_AUTH_URL: http://localhost:3000
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   worker:
     profiles: ["app"]
@@ -38,7 +48,7 @@ services:
     environment:
       DATABASE_URL: postgresql://projectos:projectos_dev_password@db:5432/projectos
     depends_on:
-      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
 volumes:
   pgdata:

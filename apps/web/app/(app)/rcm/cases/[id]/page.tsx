@@ -48,7 +48,7 @@ export default async function RcmCasePage({ params }: { params: Promise<{ id: st
         <Link href="/rcm/queues" className="text-teal-800 hover:underline">
           Work queues
         </Link>
-        <span className="text-slate-400"> / </span>
+        <span className="text-slate-500"> / </span>
         <Link href={`/rcm/queues?queueId=${d.queue.id}`} className="text-teal-800 hover:underline">
           {d.queue.name}
         </Link>

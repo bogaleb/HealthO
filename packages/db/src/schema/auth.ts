@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, updatedAt } from "./_common";
 
 /**
@@ -87,3 +87,14 @@ export const twoFactors = pgTable(
   },
   (t) => [index("two_factors_user_idx").on(t.userId), index("two_factors_secret_idx").on(t.secret)],
 );
+
+/**
+ * Better Auth rate-limit counters (Phase 8). Stored in Postgres so limits hold across restarts and across several
+ * web instances (the in-memory default resets on deploy and is per-process). Keys are "<ip>|<path>" — no user data.
+ */
+export const rateLimits = pgTable("rate_limits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});

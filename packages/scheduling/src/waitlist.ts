@@ -177,6 +177,9 @@ export async function offerWaitlistSlot(db: Db, ctx: AuthContext, id: string, in
   assertBookingEnabled();
   const d = parse(waitlistOffer, input);
   const e = await loadEntry(db, ctx, id);
+  // Phase 8 (privilege matrix): authorize before revealing the entry's state or searching slots for it.
+  if (e.siteId) await requireAtSite(db, ctx, "scheduling.manage", e.siteId, "waitlist.offer", "waitlist_entry", id);
+  else await requireAnywhere(db, ctx, "scheduling.manage", "waitlist.offer", "waitlist_entry");
   if (e.status !== "ACTIVE") throw new AppError("CONFLICT", "Only active waitlist entries can receive an offer.", [{ code: "BAD_STATUS", field: "status" }]);
   let slot: { practitionerId: string; siteId: string; startAt: string } | undefined;
   if (d.startAt && d.practitionerId && d.siteId) slot = { practitionerId: d.practitionerId, siteId: d.siteId, startAt: d.startAt };

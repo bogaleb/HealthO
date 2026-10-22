@@ -155,6 +155,20 @@ export async function technicalChecks(db: Db, organizationId: string, now = new 
     ok: !!rehearsal && rehearsal.status === "PASS" && now.getTime() - rehearsal.finishedAt.getTime() < 30 * 86_400_000,
     detail: rehearsal ? `Last rehearsal ${rehearsal.status} at ${rehearsal.finishedAt.toISOString()}.` : "No rehearsal recorded (run pnpm ops:rehearsal).",
   });
+  // Phase 8 release-validation drills (each must have passed within 30 days of a release decision).
+  for (const [kind, key, label, cmd] of [
+    ["LOAD_TEST", "load_test", "Concurrency load test + performance budget passed (30 days)", "pnpm ops:load-test"],
+    ["CLEAN_DEPLOY_RESTORE", "clean_deploy_restore", "Restore into a clean deployment passed (30 days)", "pnpm ops:clean-restore"],
+    ["MIGRATION_ROLLBACK", "migration_rollback", "Migration failure → automatic rollback rehearsed (30 days)", "pnpm ops:migration-drill"],
+  ] as const) {
+    const d = await lastDrill(db, kind);
+    checks.push({
+      key,
+      label,
+      ok: !!d && d.status === "PASS" && now.getTime() - d.finishedAt.getTime() < 30 * 86_400_000,
+      detail: d ? `Last run ${d.status} at ${d.finishedAt.toISOString()}.` : `Not recorded (run ${cmd}).`,
+    });
+  }
   const [demoRules] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(licensePolicyRules)
@@ -226,11 +240,14 @@ export async function getReadiness(db: Db, ctx: AuthContext, now = new Date()) {
   };
 }
 
+/** Recorded operational drills (append-only `ops_drills`). Phase 8 added the release-validation kinds. */
+export type DrillKind = "BACKUP_RESTORE" | "CLINIC_DAY_REHEARSAL" | "DOWNTIME_PRINT" | "LOAD_TEST" | "MIGRATION_ROLLBACK" | "CLEAN_DEPLOY_RESTORE";
+
 export async function recordDrill(
   db: DbOrTx,
   d: {
     organizationId: string | null;
-    kind: "BACKUP_RESTORE" | "CLINIC_DAY_REHEARSAL" | "DOWNTIME_PRINT";
+    kind: DrillKind;
     status: "PASS" | "FAIL";
     startedAt: Date;
     summary: object;

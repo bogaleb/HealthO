@@ -373,7 +373,7 @@ export function TaskDrawer({
                       <button
                         type="button"
                         aria-label={`Remove checklist item ${c.text}`}
-                        className="ml-auto rounded p-0.5 text-slate-400 hover:text-red-700"
+                        className="ml-auto rounded p-0.5 text-slate-500 hover:text-red-700"
                         onClick={() => run("check", () => apiFetch(`/api/v1/tasks/${t.id}/checklist/${c.id}`, { method: "DELETE" }))}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -483,7 +483,7 @@ export function TaskDrawer({
                         <button
                           type="button"
                           aria-label={`Remove link to ${d.projectKey}-${d.number}`}
-                          className="rounded p-0.5 text-slate-400 hover:text-red-700"
+                          className="rounded p-0.5 text-slate-500 hover:text-red-700"
                           onClick={() => run("dep", () => apiFetch(`/api/v1/tasks/${t.id}/dependencies/${d.dependencyId}`, { method: "DELETE" }))}
                         >
                           <X className="h-3.5 w-3.5" />

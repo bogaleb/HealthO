@@ -15,3 +15,10 @@ next-env.d.ts
 setup.log
 *.zip
 backups/
+
+# Terraform / OpenTofu local state and provider cache
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan

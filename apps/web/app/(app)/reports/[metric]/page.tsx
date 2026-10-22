@@ -11,7 +11,7 @@ import { ReportFilterForm, pickReportFilters } from "@/components/reports/Report
 export const metadata: Metadata = { title: "Report" };
 
 function Cell({ kind, value, tz }: { kind?: string; value: unknown; tz: string }) {
-  if (value === null || value === undefined || value === "") return <span className="text-slate-400">—</span>;
+  if (value === null || value === undefined || value === "") return <span className="text-slate-500">—</span>;
   if (kind === "date") return <span className="tabular">{formatDate(String(value))}</span>;
   if (kind === "instant") return <span className="tabular">{formatInstant(String(value), tz)}</span>;
   if (kind === "money") return <span className="tabular">{formatMoney(Number(value))}</span>;
@@ -35,7 +35,7 @@ export default async function MetricPage({ params, searchParams }: { params: Pro
         <Link href="/reports" className="text-teal-800 hover:underline">
           Reports
         </Link>
-        <span className="text-slate-400"> / </span>
+        <span className="text-slate-500"> / </span>
         <span>{r.metric.domainLabel}</span>
       </nav>
       <PageHeader
