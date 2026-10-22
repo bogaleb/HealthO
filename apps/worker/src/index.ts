@@ -4,6 +4,8 @@ import { runCredentialDeadlines } from "@projectos/credentialing";
 import { expireWaitlistOffers, releaseExpiredHolds, rescreenUpcoming } from "@projectos/scheduling";
 import { dispatchOutbox, recoverStaleOutbox, scanTaskDue } from "@projectos/notifications";
 import { scanRcmDue } from "@projectos/rcm";
+// Importing integrations registers the `ehr.write` outbox handler (EHR write-through, Phase 7).
+import { reconcileAll, syncAllConnections } from "@projectos/integrations";
 import { logger, todayIn } from "@projectos/shared";
 
 /**
@@ -28,6 +30,9 @@ JOB_HANDLERS["notifications.scan"] = async (d, p) => {
   const organizationId = typeof p.organizationId === "string" ? p.organizationId : undefined;
   return { rcm: await scanRcmDue(d, { organizationId }), tasks: await scanTaskDue(d, { organizationId }) };
 };
+// Phase 7: EHR health + availability + change feed (every 5 min) and reconciliation (hourly). Synthetic simulator only.
+JOB_HANDLERS["ehr.sync"] = (d, p) => syncAllConnections(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
+JOB_HANDLERS["ehr.reconcile"] = (d, p) => reconcileAll(d, { organizationId: typeof p.organizationId === "string" ? p.organizationId : undefined });
 let stopping = false;
 
 async function tick() {
@@ -42,6 +47,9 @@ async function tick() {
   await expireWaitlistOffers(db);
   await enqueueJob(db, "scheduling.rescreen", `scheduling.rescreen:${hour}`);
   await enqueueJob(db, "notifications.scan", `notifications.scan:${hour}`);
+  const fiveMin = new Date(Math.floor(Date.now() / 300_000) * 300_000).toISOString().slice(0, 16);
+  await enqueueJob(db, "ehr.sync", `ehr.sync:${fiveMin}`);
+  await enqueueJob(db, "ehr.reconcile", `ehr.reconcile:${hour}`);
   const recovered = (await recoverStaleJobs(db)) + (await recoverStaleOutbox(db));
   const ran = await runDueJobs(db);
   // Deliver the transactional outbox (in-app notifications only; no SMS/email in this phase).

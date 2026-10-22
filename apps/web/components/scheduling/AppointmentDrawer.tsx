@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { APPOINTMENT_STATUS_LABEL, MODALITY_LABEL, STATUS_TRANSITIONS, US_JURISDICTIONS, type AppointmentStatus, type Modality } from "@projectos/shared";
+import { APPOINTMENT_STATUS_LABEL, EHR_STATE_LABEL, MODALITY_LABEL, STATUS_TRANSITIONS, US_JURISDICTIONS, type AppointmentStatus, type Modality } from "@projectos/shared";
 import { Badge, Button, Dialog, ErrorState, Field, Input, Select, Spinner, Textarea } from "@projectos/ui";
 import { ApiError, apiFetch, errorMessage } from "@/lib/client";
 import { reliableRefresh } from "@/lib/refresh";
@@ -37,6 +37,7 @@ type Detail = {
   bookingChannel: string;
   dataSource: string;
   eligibilityDecision: "ALLOW" | "REVIEW" | "BLOCK" | null;
+  ehrState?: string;
   eligibility: (EligibilityLike & { trigger: string }) | null;
   eligibilityHistory: { id: string; trigger: string; decision: string; jurisdiction: string | null; evaluatedAt: string }[];
   cancelReason: string | null;
@@ -150,7 +151,22 @@ export function AppointmentDrawer() {
             <Badge tone={APPT_STATUS_TONE[a.status]}>{APPOINTMENT_STATUS_LABEL[a.status]}</Badge>
             <Badge>{MODALITY_LABEL[a.modality]}</Badge>
             <DecisionBadge decision={a.eligibility?.decision ?? a.eligibilityDecision} stale={a.eligibility?.stale} />
+            {a.ehrState && a.ehrState !== "NOT_APPLICABLE" && (
+              <Badge tone={a.ehrState === "SYNCED" ? "green" : a.ehrState === "FAILED" || a.ehrState === "CONFLICT" ? "red" : "amber"}>
+                {EHR_STATE_LABEL[a.ehrState] ?? a.ehrState}
+              </Badge>
+            )}
           </div>
+          {a.ehrState && ["PENDING_CREATE", "PENDING_UPDATE"].includes(a.ehrState) && (
+            <p role="note" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900" data-testid="ehr-note">
+              This site&apos;s master schedule is the EHR. The booking was sent and is confirmed automatically only when the EHR accepts it.
+            </p>
+          )}
+          {a.ehrState === "FAILED" && (
+            <p role="note" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-900" data-testid="ehr-note">
+              The EHR did not accept this booking, so it is NOT confirmed. An administrator can see the reason and retry under Administration → Integration Health.
+            </p>
+          )}
           {err && (
             <div>
               <ErrorState title="Not done" message={err.msg} />

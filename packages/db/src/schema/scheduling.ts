@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, smallint, text, time, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, foreignKey, index, integer, jsonb, pgTable, smallint, text, time, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, id, orgId, updatedAt, version } from "./_common";
 import { organizations, sites } from "./org";
 import { users } from "./auth";
@@ -108,9 +108,12 @@ export const scheduleExceptions = pgTable(
     createdAt: createdAt(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelledBy: uuid("cancelled_by").references(() => users.id),
+    /** Set when the block was imported from an EHR availability sync (`<connectionId>:<external id>`). */
+    externalRef: text("external_ref"),
   },
   (t) => [
     index("schedule_exceptions_range_idx").on(t.organizationId, t.startAt),
+    uniqueIndex("schedule_exceptions_external_uq").on(t.organizationId, t.externalRef),
     foreignKey({ columns: [t.organizationId, t.practitionerId], foreignColumns: [practitioners.organizationId, practitioners.id] }),
     foreignKey({ columns: [t.organizationId, t.siteId], foreignColumns: [sites.organizationId, sites.id] }),
     check("schedule_exceptions_kind_ck", sql`${t.kind} in ('PTO','CLOSURE','BLOCK')`),
@@ -213,6 +216,11 @@ export const appointments = pgTable(
     eligibilityEvaluationId: uuid("eligibility_evaluation_id"),
     /** Plan the visit is billed to; null = self-pay / not specified. */
     payerPlanId: uuid("payer_plan_id"),
+    /**
+     * Phase 7 EHR write-through state (EHR_MASTER sites only). An appointment at an EHR-master site is never
+     * CONFIRMED locally until the EHR accepted it (SYNCED). NOT_APPLICABLE elsewhere.
+     */
+    ehrState: text("ehr_state").notNull().default("NOT_APPLICABLE"),
     cancelReason: text("cancel_reason"),
     holdId: uuid("hold_id"),
     createdBy: uuid("created_by").references(() => users.id),
@@ -234,6 +242,9 @@ export const appointments = pgTable(
     check("appointments_decision_ck", sql`${t.eligibilityDecision} is null or ${t.eligibilityDecision} in ('ALLOW','REVIEW','BLOCK')`),
     check("appointments_range_ck", sql`${t.endAt} > ${t.startAt} and ${t.reservedStartAt} <= ${t.startAt} and ${t.reservedEndAt} >= ${t.endAt}`),
     check("appointments_status_ck", sql`${t.status} in ('HOLD','PENDING','CONFIRMED','CHECKED_IN','COMPLETED','NO_SHOW','CANCELLED','NEEDS_RESCHEDULE')`),
+    check("appointments_ehr_state_ck", sql`${t.ehrState} in ('NOT_APPLICABLE','DRAFT','PENDING_CREATE','PENDING_UPDATE','PENDING_CANCEL','SYNCED','FAILED','CONFLICT')`),
+    // Fail closed: an appointment at an EHR-master site can only be CONFIRMED/checked in once the EHR accepted it.
+    check("appointments_ehr_confirmed_ck", sql`${t.ehrState} not in ('DRAFT','PENDING_CREATE','FAILED') or ${t.status} not in ('CONFIRMED','CHECKED_IN','COMPLETED')`),
     check("appointments_modality_ck", sql`${t.modality} in ('IN_PERSON','VIDEO','AUDIO_ONLY')`),
     check("appointments_location_status_ck", sql`${t.patientLocationStatus} in ('PROPOSED','VERIFIED','UNKNOWN')`),
     check(

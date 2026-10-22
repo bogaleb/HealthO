@@ -9,3 +9,5 @@ export * from "./queries";
 export * from "./eligibility";
 export * from "./followups";
 export * from "./waitlist";
+export * from "./ehr";
+export * from "./downtime";

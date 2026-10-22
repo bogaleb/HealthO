@@ -182,3 +182,15 @@ export const calendarQuery = z.object({
   siteId: uuid.optional(),
   practitionerId: uuid.optional(),
 });
+
+/** Phase 7 EHR write-through state (EHR_MASTER sites). */
+export const EHR_STATE_LABEL: Record<string, string> = {
+  NOT_APPLICABLE: "ProjectOS schedule",
+  DRAFT: "EHR draft (not sent)",
+  PENDING_CREATE: "Sent to EHR — awaiting confirmation",
+  PENDING_UPDATE: "Change sent to EHR — awaiting confirmation",
+  PENDING_CANCEL: "Cancellation sent to EHR",
+  SYNCED: "In sync with EHR",
+  FAILED: "EHR write failed — not confirmed",
+  CONFLICT: "EHR conflict — review",
+};

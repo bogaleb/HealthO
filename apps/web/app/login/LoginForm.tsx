@@ -15,11 +15,16 @@ export function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
+    const { data, error } = await authClient.signIn.email({ email: email.trim().toLowerCase(), password });
     setBusy(false);
     if (error) {
       // Same message for unknown email and wrong password: no account enumeration.
       setError(error.status === 429 ? "Too many attempts. Wait a minute and try again." : "Email or password is incorrect.");
+      return;
+    }
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+      // Password accepted; a second factor is required before a session is issued.
+      router.replace("/login/two-factor");
       return;
     }
     router.replace("/home");

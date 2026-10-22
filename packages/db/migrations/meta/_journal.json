@@ -78,6 +78,20 @@
       "when": 1792611068829,
       "tag": "0010_rcm_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792646575088,
+      "tag": "0011_ehr_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792646576096,
+      "tag": "0012_ehr_compliance_guards",
+      "breakpoints": true
     }
   ]
 }

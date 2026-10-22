@@ -102,6 +102,24 @@ All endpoints except health and invite acceptance require a Better Auth session 
 | POST | /api/v1/admin/outbox/:id/replay, /api/v1/admin/jobs/:id/replay | org.manage | FAILED/DEAD → PENDING (audited; delivery is idempotent) |
 | POST | /api/v1/jobs/notifications-scan | org.manage | run the reminder scan + one outbox dispatch now (the worker does this every tick) |
 
+| **EHR integration & readiness (Phase 7 — synthetic simulator only)** | | | |
+| GET | /api/v1/integrations/health | integrations.manage or scheduling.configure | per-site mode, connection label, capabilities (supported/verified), freshness, EHR-state counts, conflicts, outbox, sync runs |
+| POST | /api/v1/integrations/connections | integrations.manage | `{siteId}` → connect the SYNTHETIC simulator |
+| POST | /api/v1/integrations/connections/:id/sync \| /reconcile | integrations.manage | health + availability + change feed / reconciliation now (worker: every 5 min / hourly) |
+| POST | /api/v1/integrations/connections/:id/simulator | integrations.manage | `{failureMode: NONE\|UNREACHABLE\|FAIL_WRITES\|TIMEOUT_AFTER_WRITE}` (simulator only) |
+| POST | /api/v1/integrations/connections/:id/simulate | integrations.manage | `{kind: BOOK_IN_EHR\|CANCEL_IN_EHR\|MOVE_IN_EHR, appointmentId?, minutes?}` rehearsal helper |
+| POST | /api/v1/integrations/conflicts/:id/resolve | integrations.manage | `{action: ACCEPT_EHR\|RETRY\|RESOLVED\|DISMISS, note?}` |
+| PATCH | /api/v1/integrations/sites/:id/mode | integrations.manage | `{ehrSyncMode, ehrFreshnessMinutes?}`; STANDALONE_APPROVED refused in synthetic modes |
+| GET | /api/v1/compliance/readiness | compliance.manage, org.manage or audit.read | verdict (NOT APPROVED FOR REAL PHI by default), counts, technical checks, drills |
+| GET / PATCH | /api/v1/compliance/items, /:id | read / compliance.manage | PATCH `{action: UPDATE\|SUBMIT_EVIDENCE\|APPROVE\|REOPEN, version, …}`; submitter cannot approve (403) |
+| GET | /api/v1/scheduling/downtime?siteId&date&days | scheduling.read at site | paper downtime schedule (audited `downtime.print`) |
+| — | Better Auth `/api/auth/two-factor/*` | signed in | TOTP enable/verify/disable, backup codes (audited as `mfa.*`) |
+
+EHR booking behaviour at an `EHR_MASTER` site: `POST /appointments` → `PENDING` + `ehrState: PENDING_CREATE` (CONFIRMED only after the EHR accepts);
+EHR unreachable → 409 `ELIGIBILITY_REVIEW` with `EHR_UNAVAILABLE` (save as draft with `acceptPendingReview`); confirming a draft while the EHR is
+unavailable/stale → **503** `SERVICE_UNAVAILABLE` / `EHR_UNAVAILABLE`. When `REQUIRE_MFA_FOR_PRIVILEGED=true` (or a non-synthetic APP_MODE), privileged users
+without MFA get 403 `MFA_REQUIRED` on every API call.
+
 Metric keys: `appointments-in-range`, `appointments-needing-attention`, `blocked-booking-attempts`, `licenses-expiring`,
 `credentialing-cases-overdue`, `enrollments-not-ready`, `rcm-open`, `rcm-aged-over-90`, `rcm-next-action-overdue`, `rcm-unassigned`,
 `rcm-credentialing-blocked`, `rcm-resolved`, `tasks-overdue`, `projects-at-risk`.

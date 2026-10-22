@@ -24,12 +24,16 @@ export async function searchPatients(db: Db, ctx: AuthContext, q: string) {
   const term = (q ?? "").trim();
   if (term.length < 2) return [];
   const like = `%${term.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-  return db
+  const rows = await db
     .select(PUBLIC_FIELDS)
     .from(patients)
     .where(and(eq(patients.organizationId, ctx.organizationId), or(ilike(patients.displayName, like), ilike(patients.mrn, like))))
     .orderBy(asc(patients.displayName))
     .limit(20);
+  // Phase 7 (PHI-readiness gate "audit patient record reads"): searches are audited with the result count only —
+  // never the search term, which could itself be identifying.
+  await audit(db, ctx, { action: "patient.search", resourceType: "patient", metadata: { results: rows.length } });
+  return rows;
 }
 
 export async function getPatient(db: Db, ctx: AuthContext, id: string) {
@@ -39,6 +43,7 @@ export async function getPatient(db: Db, ctx: AuthContext, id: string) {
     .from(patients)
     .where(and(eq(patients.organizationId, ctx.organizationId), eq(patients.id, id)));
   if (!p) throw notFound("Patient");
+  await audit(db, ctx, { action: "patient.read", resourceType: "patient", resourceId: id });
   return p;
 }
 

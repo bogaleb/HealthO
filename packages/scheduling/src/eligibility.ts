@@ -10,6 +10,7 @@ import {
   providerEnrollments,
   services,
   sites,
+  ehrConnections,
 } from "@projectos/db/schema";
 import type { AuthContext } from "@projectos/auth";
 import {
@@ -40,12 +41,26 @@ import { UNAVAILABLE_MESSAGE, type Unavailable } from "./slots";
 
 export type EhrMode = "DEMO" | "STANDALONE_APPROVED" | "EHR_MASTER" | "READ_ONLY";
 export type LocationStatus = "PROPOSED" | "VERIFIED" | "UNKNOWN";
+export type EhrWrite = "VERIFIED" | "UNAVAILABLE" | "NONE";
 
 export interface EligibilityFacts {
   profession: Profession;
   practitionerPhysicalState: string | null;
   telehealthCapable: boolean;
-  site: { id: string; state: string; timezone: string; ehrSyncMode: EhrMode; ehrLastSyncedAt: Date | null; ehrFreshnessMinutes: number };
+  site: {
+    id: string;
+    state: string;
+    timezone: string;
+    ehrSyncMode: EhrMode;
+    ehrLastSyncedAt: Date | null;
+    ehrFreshnessMinutes: number;
+    /**
+     * Phase 7 write-through readiness of the site's EHR connection: VERIFIED = create/patient-match capabilities are
+     * verified and the last health check passed; UNAVAILABLE = verified but the EHR is not reachable; NONE = no
+     * verified write path. Optional for callers that predate Phase 7 (treated as NONE).
+     */
+    ehrWrite?: EhrWrite;
+  };
   modality: Modality;
   serviceCategory: string | null;
   startAt: Date;
@@ -159,6 +174,8 @@ export function decideEligibility(f: EligibilityFacts): EligibilityResult {
     flags.push(flag("EHR_STALE", "BLOCK", "EHR_READ_ONLY", "This site's schedule is read-only here; appointments are made in the EHR."));
   } else if (mode === "EHR_MASTER") {
     const ageMin = f.site.ehrLastSyncedAt ? (f.now.getTime() - f.site.ehrLastSyncedAt.getTime()) / 60_000 : Infinity;
+    const write = f.site.ehrWrite ?? "NONE";
+    // Fail closed: stale or unreachable master schedule → only a draft (REVIEW) can be saved, never a confirmation.
     flags.push(
       ageMin > f.site.ehrFreshnessMinutes
         ? flag(
@@ -169,7 +186,11 @@ export function decideEligibility(f: EligibilityFacts): EligibilityResult {
               ? `EHR master schedule last synchronized ${Math.round(ageMin)} min ago (limit ${f.site.ehrFreshnessMinutes}).`
               : "EHR master schedule has never synchronized.",
           )
-        : flag("EHR_STALE", "REVIEW", "EHR_WRITE_NOT_CONNECTED", "The EHR is the master schedule and no EHR write connection exists; confirm in the EHR."),
+        : write === "UNAVAILABLE"
+          ? flag("EHR_STALE", "REVIEW", "EHR_UNAVAILABLE", "The EHR (master schedule) is not reachable right now. Save a draft; it is sent when the EHR is back.")
+          : write === "VERIFIED"
+            ? flag("INFO", "INFO", "EHR_WRITE_THROUGH", "The EHR is the master schedule: the booking is sent to the EHR and confirmed only after the EHR accepts it.")
+            : flag("EHR_STALE", "REVIEW", "EHR_WRITE_NOT_CONNECTED", "The EHR is the master schedule and no verified EHR write connection exists; confirm in the EHR."),
     );
   } else if (mode === "DEMO") {
     flags.push(flag("INFO", "INFO", "SYNTHETIC_DEMO_SITE", "Synthetic demo site — not an authoritative schedule."));
@@ -237,6 +258,15 @@ export interface EligibilityBase {
 }
 
 /** Batch-load the facts for many practitioner × site combinations (search) or one (booking). */
+/** Write-through readiness from the site's EHR connection row (capability flags are verified per connection). */
+export function ehrWriteOf(c: { enabled: boolean | null; capabilities: unknown; lastHealthOk: boolean | null } | null): EhrWrite {
+  if (!c || !c.enabled) return "NONE";
+  const caps = (c.capabilities ?? {}) as Record<string, { supported?: boolean; verified?: boolean }>;
+  const ok = (k: string) => !!caps[k]?.supported && !!caps[k]?.verified;
+  if (!ok("createAppointment") || !ok("searchPatients")) return "NONE";
+  return c.lastHealthOk === false ? "UNAVAILABLE" : "VERIFIED";
+}
+
 export async function loadEligibilityBase(
   db: DbOrTx,
   organizationId: string,
@@ -251,8 +281,9 @@ export async function loadEligibilityBase(
       : [],
     q.siteIds.length
       ? db
-          .select()
+          .select({ s: sites, c: { enabled: ehrConnections.enabled, capabilities: ehrConnections.capabilities, lastHealthOk: ehrConnections.lastHealthOk } })
           .from(sites)
+          .leftJoin(ehrConnections, and(eq(ehrConnections.siteId, sites.id), eq(ehrConnections.organizationId, sites.organizationId)))
           .where(and(eq(sites.organizationId, organizationId), inArray(sites.id, q.siteIds)))
       : [],
     q.practitionerIds.length
@@ -304,9 +335,17 @@ export async function loadEligibilityBase(
   return {
     practitioners: new Map(ps.map((p) => [p.id, { profession: p.profession as Profession, physicalState: p.physicalState, telehealthCapable: p.telehealthCapable }])),
     sites: new Map(
-      ss.map((s) => [
+      ss.map(({ s, c }) => [
         s.id,
-        { id: s.id, state: s.state, timezone: s.timezone, ehrSyncMode: s.ehrSyncMode as EhrMode, ehrLastSyncedAt: s.ehrLastSyncedAt, ehrFreshnessMinutes: s.ehrFreshnessMinutes },
+        {
+          id: s.id,
+          state: s.state,
+          timezone: s.timezone,
+          ehrSyncMode: s.ehrSyncMode as EhrMode,
+          ehrLastSyncedAt: s.ehrLastSyncedAt,
+          ehrFreshnessMinutes: s.ehrFreshnessMinutes,
+          ehrWrite: ehrWriteOf(c),
+        },
       ]),
     ),
     authorities,

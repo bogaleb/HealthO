@@ -47,7 +47,8 @@ Sign in at http://localhost:3000 with any seeded account (all use your `DEMO_PAS
 | taylor.nguyen@riverbend.example | Revenue Cycle Supervisor (Revenue Cycle dept) | Bulk assign + undo, queues, escalations, notifications |
 | casey.lin@riverbend.example | Credentialing Specialist (Credentialing dept only) | Sees only the Onboarding project |
 | sam.ortiz@riverbend.example | Scheduler (Alexandria site only) | Least privilege: no admin, no projects edit |
-| jordan.kim@riverbend.example | Auditor | Audit log (allow + deny events) |
+| jordan.kim@riverbend.example | Auditor | Audit log (allow + deny events), PHI readiness (read) |
+| dana.brooks@riverbend.example | Compliance Officer | PHI readiness checklist (submit/approve evidence with a second person), policy rules |
 
 ## Everyday commands
 
@@ -59,6 +60,9 @@ Sign in at http://localhost:3000 with any seeded account (all use your `DEMO_PAS
 | `pnpm db:migrate` | Apply pending migrations |
 | `pnpm db:seed` | Seed synthetic demo org (skips if already seeded; refuses outside DEVELOPMENT/DEMO_SYNTHETIC) |
 | `pnpm db:reset` | **Drop everything**, re-migrate, re-seed (synthetic modes only) |
+| `pnpm ops:restore-drill` | Backup (encrypted if `BACKUP_ENCRYPTION_KEY` set) → restore into a scratch DB → verify → record result |
+| `pnpm ops:rehearsal` | Synthetic clinic-day rehearsal against the EHR simulator (isolated org) → record result |
+| `pnpm security:scan` | Secret scan of tracked files |
 | `pnpm db:generate` | Generate a new migration after editing `packages/db/src/schema` |
 | `pnpm lint` / `pnpm typecheck` | ESLint (incl. architecture rule) / TypeScript strict across all packages |
 | `pnpm test` | Unit tests (no database) |

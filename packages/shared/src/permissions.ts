@@ -17,6 +17,8 @@ export const PERMISSIONS = [
   "projects.edit",
   "audit.read",
   "policy.publish",
+  "integrations.manage",
+  "compliance.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -39,6 +41,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "projects.edit": "Create and edit projects and tasks",
   "audit.read": "Read audit events",
   "policy.publish": "Publish licensure policy rules",
+  "integrations.manage": "Configure EHR connections, run syncs/reconciliation, resolve integration conflicts",
+  "compliance.manage": "Maintain the PHI-readiness evidence checklist and record independent approvals",
 };
 
 export function isPermission(value: string): value is Permission {
@@ -46,4 +50,4 @@ export function isPermission(value: string): value is Permission {
 }
 
 /** Permissions that only an org-wide grant may carry (no site/department scoping). */
-export const ORG_WIDE_ONLY: readonly Permission[] = ["org.manage", "users.manage", "audit.read", "policy.publish"];
+export const ORG_WIDE_ONLY: readonly Permission[] = ["org.manage", "users.manage", "audit.read", "policy.publish", "integrations.manage", "compliance.manage"];

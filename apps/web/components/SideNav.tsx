@@ -3,6 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Plug,
+  Printer,
+  ShieldCheck,
+  KeySquare,
   BadgeCheck,
   Bell,
   ChartColumn,
@@ -50,6 +54,10 @@ const ICONS = {
   reports: ChartColumn,
   bell: Bell,
   worker: Activity,
+  plug: Plug,
+  print: Printer,
+  shield: ShieldCheck,
+  key: KeySquare,
 };
 export interface NavItem {
   href: string;
@@ -108,7 +116,7 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
         ))}
       <div className="mt-auto rounded-md border border-white/10 px-2.5 py-2 text-[11.5px] leading-snug text-slate-400">
         <p className="font-semibold text-slate-300">Not built yet</p>
-        <p className="mt-0.5">EHR integration and outbound email/SMS (Phase 7+). In-app notifications only.</p>
+        <p className="mt-0.5">Real EHR connection (only a synthetic simulator exists), outbound email/SMS. NOT APPROVED FOR REAL PHI.</p>
       </div>
     </nav>
   );

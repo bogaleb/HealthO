@@ -9,11 +9,15 @@ import { SideNav, type NavItem } from "@/components/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { unreadCount } from "@projectos/notifications";
 import { canSeeReports } from "@projectos/reports";
+import { isPrivileged, mfaRequiredForPrivileged, userHasMfa } from "@projectos/compliance";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireContext();
+  // MFA enforcement for privileged roles (always outside synthetic modes; opt-in via REQUIRE_MFA_FOR_PRIVILEGED).
+  if (mfaRequiredForPrivileged() && isPrivileged(ctx) && !(await userHasMfa(getDb(), ctx.userId))) redirect("/account/security?required=1");
   const [org] = await getDb().select({ name: organizations.name }).from(organizations).where(eq(organizations.id, ctx.organizationId));
   const mode = appMode();
   const banner = isSyntheticMode(mode);
@@ -38,11 +42,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/scheduling/find", label: "Find Appointment", icon: "find" },
         ...(hasAny(ctx, "scheduling.manage") ? [{ href: "/scheduling/appointments/new", label: "New Appointment", icon: "book" } as NavItem] : []),
         { href: "/scheduling/waitlist", label: "Waitlist", icon: "waitlist" },
+        { href: "/scheduling/downtime", label: "Downtime Schedule", icon: "print" },
         { href: "/scheduling/setup", label: "Scheduling Setup", icon: "setup" },
       ]
     : [];
   if (hasAny(ctx, "audit.read")) admin.push({ href: "/admin/audit", label: "Audit Log", icon: "audit" });
   if (hasAny(ctx, "org.manage")) admin.push({ href: "/admin/worker", label: "Worker & Outbox", icon: "worker" });
+  if (hasAny(ctx, "integrations.manage") || hasAny(ctx, "scheduling.configure")) admin.push({ href: "/admin/integrations", label: "Integration Health", icon: "plug" });
+  if (hasAny(ctx, "compliance.manage") || hasAny(ctx, "org.manage") || hasAny(ctx, "audit.read")) admin.push({ href: "/admin/compliance", label: "PHI Readiness", icon: "shield" });
   const rcm: NavItem[] = hasAny(ctx, "rcm.read") ? [{ href: "/rcm/queues", label: "Work Queues", icon: "queues" }] : [];
   const insights: NavItem[] = canSeeReports(ctx)
     ? [
@@ -60,7 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       )}
       <div className="flex flex-1">
-        <aside className={`sticky hidden w-60 shrink-0 flex-col bg-navy-950 md:flex ${banner ? "top-7 h-[calc(100dvh-1.75rem)]" : "top-0 h-dvh"}`}>
+        <aside className={`sticky hidden w-60 print:!hidden shrink-0 flex-col bg-navy-950 md:flex ${banner ? "top-7 h-[calc(100dvh-1.75rem)]" : "top-0 h-dvh"}`}>
           <div className="border-b border-white/10 px-4 py-3.5">
             <div className="text-[15px] font-semibold tracking-tight text-white">ProjectOS Health</div>
             <div className="mt-0.5 truncate text-[12px] text-slate-400" title={org?.name}>
@@ -79,17 +86,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           />
           <div className="border-t border-white/10 px-3 py-3">
             <div className="truncate px-1 text-[13px] text-slate-200">{ctx.displayName}</div>
-            <div className="mt-1.5">
+            <div className="mt-1.5 flex items-center justify-between gap-2">
               <SignOutButton compact />
+              <a href="/account/security" className="text-[12px] text-slate-400 underline hover:text-white">
+                Security (MFA)
+              </a>
             </div>
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2 md:hidden">
+          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2 md:hidden print:hidden">
             <span className="font-semibold">ProjectOS Health</span>
             <SignOutButton />
           </header>
-          <nav aria-label="Mobile" className="flex gap-3 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 text-sm md:hidden">
+          <nav aria-label="Mobile" className="print:hidden flex gap-3 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 text-sm md:hidden">
             {[...main, ...insights, ...sched, ...cred, ...rcm, ...admin].map((n) => (
               <a key={n.href} href={n.href} className="whitespace-nowrap text-slate-700">
                 {n.label}

@@ -13,7 +13,7 @@
     "worker": "pnpm --filter @projectos/worker start",
     "db:generate": "pnpm --filter @projectos/db generate",
     "db:migrate": "pnpm --filter @projectos/db migrate",
-    "db:seed": "pnpm --filter @projectos/core seed && pnpm --filter @projectos/credentialing seed && pnpm --filter @projectos/scheduling seed && pnpm --filter @projectos/rcm seed",
+    "db:seed": "pnpm --filter @projectos/core seed && pnpm --filter @projectos/credentialing seed && pnpm --filter @projectos/scheduling seed && pnpm --filter @projectos/rcm seed && pnpm --filter @projectos/compliance seed",
     "db:reset": "pnpm --filter @projectos/db reset && pnpm db:migrate && pnpm db:seed",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -22,7 +22,11 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "ops:restore-drill": "pnpm --filter @projectos/compliance drill:restore",
+    "ops:rehearsal": "pnpm --filter @projectos/compliance rehearsal",
+    "security:scan": "node scripts/security/scan-secrets.mjs",
+    "security:audit": "pnpm audit --prod --audit-level=high || echo \"Dependency audit findings \u2014 triage in docs/compliance/SECURITY_RISK_REGISTER.md\""
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "16.4.2",

@@ -16,6 +16,7 @@
     "@projectos/core": "workspace:*",
     "@projectos/credentialing": "workspace:*",
     "@projectos/db": "workspace:*",
+    "@projectos/notifications": "workspace:*",
     "@projectos/shared": "workspace:*",
     "better-auth": "1.7.12",
     "drizzle-orm": "0.45.4",

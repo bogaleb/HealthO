@@ -11,6 +11,8 @@ const DEMO_EMAILS = [
   ["avery.admin@riverbend.example", "Organization Administrator"],
   ["pat.morgan@riverbend.example", "Project Manager + Executive"],
   ["riley.shah@riverbend.example", "RCM Analyst (Revenue Cycle dept only)"],
+  ["taylor.nguyen@riverbend.example", "Revenue Cycle Supervisor"],
+  ["dana.brooks@riverbend.example", "Compliance Officer (PHI readiness checklist)"],
   ["casey.lin@riverbend.example", "Credentialing Specialist (Credentialing dept only)"],
   ["sam.ortiz@riverbend.example", "Scheduler (Alexandria site only)"],
   ["jordan.kim@riverbend.example", "Auditor"],

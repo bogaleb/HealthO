@@ -1,0 +1,25 @@
+{
+  "name": "@projectos/integrations",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@projectos/auth": "workspace:*",
+    "@projectos/core": "workspace:*",
+    "@projectos/db": "workspace:*",
+    "@projectos/notifications": "workspace:*",
+    "@projectos/scheduling": "workspace:*",
+    "@projectos/shared": "workspace:*",
+    "better-auth": "1.7.12",
+    "drizzle-orm": "0.45.4",
+    "kysely": "0.29.7",
+    "zod": "4.6.7"
+  }
+}

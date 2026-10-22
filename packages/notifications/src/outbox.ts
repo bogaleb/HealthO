@@ -42,8 +42,28 @@ export async function enqueueNotification(db: DbOrTx, n: NotificationInput) {
   return r[0]?.id ?? null;
 }
 
-type OutboxRow = typeof outboxEvents.$inferSelect;
+export type OutboxRow = typeof outboxEvents.$inferSelect;
 export type Deliverer = (db: Db, ev: OutboxRow) => Promise<void>;
+
+/** Throw from a deliverer when retrying cannot help (bad data, rejected by the remote system): the row goes DEAD now. */
+export class PermanentDeliveryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermanentDeliveryError";
+  }
+}
+
+export interface OutboxHandler {
+  deliver: Deliverer;
+  /** Called once when an event becomes DEAD (e.g. mark the business record as failed so staff see it). */
+  onDead?: (db: Db, ev: OutboxRow, error: string) => Promise<void>;
+}
+
+/** Generic transactional-outbox insert (call inside the domain transaction). Duplicate keys are ignored. */
+export async function enqueueOutbox(db: DbOrTx, organizationId: string, type: string, dedupeKey: string, payload: Record<string, unknown>, maxAttempts = 5) {
+  const r = await db.insert(outboxEvents).values({ organizationId, type, dedupeKey, payload, maxAttempts }).onConflictDoNothing().returning({ id: outboxEvents.id });
+  return r[0]?.id ?? null;
+}
 
 /** Default deliverer: in-app inbox row, idempotent per (org, user, dedupe key). */
 export const deliverInApp: Deliverer = async (db, ev) => {
@@ -66,16 +86,24 @@ export const deliverInApp: Deliverer = async (db, ev) => {
     .onConflictDoNothing();
 };
 
+/** Handlers by outbox type. Other packages register theirs (e.g. integrations → `ehr.write`). */
+export const OUTBOX_HANDLERS: Record<string, OutboxHandler> = {
+  [OUTBOX_NOTIFY]: { deliver: deliverInApp },
+};
+
 /**
  * Claim and deliver due outbox events. FOR UPDATE SKIP LOCKED so concurrent workers never take the same row;
  * failures back off exponentially and become DEAD after max attempts (visible on /admin/worker for replay).
+ * Only types with a registered handler in THIS process are claimed, so a process that can't deliver a type never
+ * burns its attempts. `deliver` (tests) overrides delivery for every type.
  */
-export async function dispatchOutbox(db: Db, opts: { limit?: number; deliver?: Deliverer } = {}) {
-  const deliver = opts.deliver ?? deliverInApp;
+export async function dispatchOutbox(db: Db, opts: { limit?: number; deliver?: Deliverer; types?: string[] } = {}) {
+  const types = opts.types ?? Object.keys(OUTBOX_HANDLERS);
+  const typeFilter = opts.deliver && !opts.types ? sql`true` : sql`type in ${types}`;
   const claimed = await db.execute<OutboxRow & Record<string, unknown>>(sql`
     update outbox_events set status = 'PROCESSING', locked_at = now(), attempts = attempts + 1
     where id in (
-      select id from outbox_events where status in ('PENDING','FAILED') and available_at <= now()
+      select id from outbox_events where status in ('PENDING','FAILED') and available_at <= now() and ${typeFilter}
       order by available_at limit ${opts.limit ?? 50} for update skip locked
     ) returning id, organization_id, type, payload, dedupe_key, status, attempts, max_attempts, available_at, locked_at, last_error, processed_at, created_at`);
   let delivered = 0;
@@ -91,18 +119,28 @@ export async function dispatchOutbox(db: Db, opts: { limit?: number; deliver?: D
       attempts: raw.attempts,
       maxAttempts: raw.max_attempts as number,
     } as OutboxRow;
+    const handler = OUTBOX_HANDLERS[ev.type];
     try {
-      await deliver(db, ev);
+      if (opts.deliver) await opts.deliver(db, ev);
+      else if (handler) await handler.deliver(db, ev);
+      else throw new Error(`No handler for outbox type ${ev.type}`);
       await db.execute(sql`update outbox_events set status = 'DONE', processed_at = now(), last_error = null where id = ${ev.id}`);
       delivered++;
     } catch (e) {
       failed++;
-      const dead = ev.attempts >= ev.maxAttempts;
+      const dead = ev.attempts >= ev.maxAttempts || e instanceof PermanentDeliveryError;
       const delaySec = Math.min(3600, 2 ** ev.attempts * 15);
       const msg = e instanceof Error ? e.message.slice(0, 300) : "unknown error";
       await db.execute(sql`update outbox_events set status = ${dead ? "DEAD" : "FAILED"}, last_error = ${msg},
         available_at = now() + make_interval(secs => ${delaySec}) where id = ${ev.id}`);
       logger.warn("outbox.failed", { outboxId: ev.id, type: ev.type, attempts: ev.attempts, dead });
+      if (dead && handler?.onDead && !opts.deliver) {
+        try {
+          await handler.onDead(db, ev, msg);
+        } catch {
+          logger.error("outbox.on_dead_failed", { outboxId: ev.id, type: ev.type });
+        }
+      }
     }
   }
   return { claimed: claimed.length, delivered, failed };

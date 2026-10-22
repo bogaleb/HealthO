@@ -68,6 +68,9 @@ importers:
       '@projectos/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@projectos/compliance':
+        specifier: workspace:*
+        version: link:../../packages/compliance
       '@projectos/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -77,6 +80,9 @@ importers:
       '@projectos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@projectos/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@projectos/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -147,6 +153,9 @@ importers:
       '@projectos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@projectos/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@projectos/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -183,6 +192,48 @@ importers:
       kysely:
         specifier: 0.29.7
         version: 0.29.7
+
+  packages/compliance:
+    dependencies:
+      '@projectos/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@projectos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projectos/credentialing':
+        specifier: workspace:*
+        version: link:../credentialing
+      '@projectos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@projectos/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@projectos/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@projectos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      better-auth:
+        specifier: 1.7.12
+        version: 1.7.12(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(kysely@0.29.7)(postgres@3.4.9))(next@16.4.2(@playwright/test@1.56.1)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(vitest@3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(kysely@0.29.7)(postgres@3.4.9)
+      kysely:
+        specifier: 0.29.7
+        version: 0.29.7
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/core:
     dependencies:
@@ -253,6 +304,39 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+
+  packages/integrations:
+    dependencies:
+      '@projectos/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@projectos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@projectos/db':
+        specifier: workspace:*
+        version: link:../db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@projectos/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@projectos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      better-auth:
+        specifier: 1.7.12
+        version: 1.7.12(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(kysely@0.29.7)(postgres@3.4.9))(next@16.4.2(@playwright/test@1.56.1)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(vitest@3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(kysely@0.29.7)(postgres@3.4.9)
+      kysely:
+        specifier: 0.29.7
+        version: 0.29.7
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/notifications:
     dependencies:
@@ -361,6 +445,9 @@ importers:
       '@projectos/db':
         specifier: workspace:*
         version: link:../db
+      '@projectos/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@projectos/shared':
         specifier: workspace:*
         version: link:../shared

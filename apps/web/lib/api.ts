@@ -5,6 +5,7 @@ import { getDb, type Db } from "@projectos/db";
 import { loadAuthContext, type AuthContext } from "@projectos/auth";
 import { getAuth } from "@projectos/auth/server";
 import { AppError, isAppError, logger, type ErrorBody } from "@projectos/shared";
+import { isPrivileged, mfaRequiredForPrivileged, userHasMfa } from "@projectos/compliance";
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -60,6 +61,8 @@ export function api<P extends Params = Params>(handler: (a: HandlerArgs<P>) => P
       const db = getDb();
       const ctx = await loadAuthContext(db, session.user.id, requestId);
       if (!ctx) throw new AppError("FORBIDDEN", "Your organization membership is not active.");
+      if (mfaRequiredForPrivileged() && isPrivileged(ctx) && !(await userHasMfa(db, ctx.userId)))
+        throw new AppError("FORBIDDEN", "Multi-factor authentication is required for your role. Set it up under Account security.", [{ code: "MFA_REQUIRED" }]);
       const params = (await route.params) ?? ({} as P);
       const result = await handler({ req, ctx, db, params, requestId, body: () => readJson(req) });
       logger.info("api", { requestId, method: req.method, route: req.nextUrl.pathname, status: opts.status ?? 200, ms: Date.now() - started });

@@ -1,3 +1,4 @@
+import { ehrBookingState, ehrLinkOf, ehrUnavailable, queueEhrWrite, siteEhr } from "./ehr";
 import { randomUUID } from "node:crypto";
 import { and, eq, gt, inArray, lt } from "drizzle-orm";
 import { pgErrorCode, type Db, type Tx } from "@projectos/db";
@@ -478,7 +479,8 @@ export async function createAppointment(db: Db, ctx: AuthContext, input: unknown
           const ei = evalInputOf(d, v.visit.start, { state: d.patientLocationState ?? null, status: d.patientLocationStatus }, d.payerPlanId ?? null);
           const r = await evaluateEligibility(tx, ctx.organizationId, ei, { capacity: { ok: true }, now });
           if (r.decision === "BLOCK" || (r.decision === "REVIEW" && !d.acceptPendingReview)) throw new EligibilityStop(r, ei);
-          const status = r.decision === "ALLOW" ? "CONFIRMED" : "PENDING";
+          const ehr = await siteEhr(tx, ctx.organizationId, d.siteId);
+          const { status, ehrState } = ehrBookingState(ehr.mode, r.decision === "ALLOW" ? "ALLOW" : "REVIEW");
           const [a] = await tx
             .insert(appointments)
             .values({
@@ -503,16 +505,25 @@ export async function createAppointment(db: Db, ctx: AuthContext, input: unknown
               eligibilityDecision: r.decision,
               payerPlanId: d.payerPlanId ?? null,
               holdId: holdId ?? null,
+              ehrState,
               createdBy: ctx.userId,
             })
             .returning();
           const evalId = await persistEvaluation(tx, ctx, ei, r, { trigger: opts.trigger ?? "BOOK", appointmentId: newId });
           const [withEval] = await tx.update(appointments).set({ eligibilityEvaluationId: evalId }).where(eq(appointments.id, newId)).returning();
           await reserve(tx, ctx.organizationId, { practitionerId: d.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: newId });
+          if (ehrState === "PENDING_CREATE") await queueEhrWrite(tx, ctx.organizationId, newId, "CREATE", 1);
           await event(tx, ctx, newId, {
             event: "BOOKED",
             to: status,
-            reason: status === "PENDING" ? "Saved pending eligibility review (not confirmed)" : null,
+            reason:
+              ehrState === "PENDING_CREATE"
+                ? "Sent to the EHR (master schedule) — awaiting EHR confirmation, not yet confirmed"
+                : ehrState === "DRAFT"
+                  ? "Saved as a draft at an EHR-master site (not sent to the EHR, not confirmed)"
+                  : status === "PENDING"
+                    ? "Saved pending eligibility review (not confirmed)"
+                    : null,
             after: { startAt: a!.startAt, practitionerId: d.practitionerId, siteId: d.siteId, roomId: v.roomId, decision: r.decision },
           });
           await audit(tx, ctx, {
@@ -606,7 +617,16 @@ export async function rescheduleAppointment(db: Db, ctx: AuthContext, id: string
           const ei = inputFromAppointment(a, { practitionerId: target.practitionerId, siteId: target.siteId, startAt: v.visit.start });
           const r = await evaluateEligibility(tx, ctx.organizationId, ei, { capacity: { ok: true }, now });
           if (r.decision === "BLOCK" || (r.decision === "REVIEW" && !d.acceptPendingReview)) throw new EligibilityStop(r, ei);
-          const status = r.decision === "ALLOW" ? "CONFIRMED" : "PENDING";
+          const link = await ehrLinkOf(tx, ctx.organizationId, id);
+          if (link && target.siteId !== a.siteId)
+            throw new AppError("CONFLICT", "This appointment is in the EHR; moving it to another site needs a cancel and a new booking.", [
+              { code: "EHR_LINKED", field: "siteId" },
+            ]);
+          const ehr = await siteEhr(tx, ctx.organizationId, target.siteId);
+          const booked = ehrBookingState(ehr.mode, r.decision === "ALLOW" ? "ALLOW" : "REVIEW");
+          const status = booked.status;
+          // Already in the EHR → an update; otherwise (draft / never accepted) → a create.
+          const ehrState = booked.ehrState === "PENDING_CREATE" && link ? "PENDING_UPDATE" : booked.ehrState;
           const evalId = await persistEvaluation(tx, ctx, ei, r, { trigger: "RESCHEDULE", appointmentId: id });
           const [u] = await tx
             .update(appointments)
@@ -624,11 +644,14 @@ export async function rescheduleAppointment(db: Db, ctx: AuthContext, id: string
               eligibilityDecision: r.decision,
               eligibilityStatus: statusForDecision(r.decision),
               eligibilityEvaluationId: evalId,
+              ehrState,
               version: a.version + 1,
             })
             .where(eq(appointments.id, id))
             .returning();
           await reserve(tx, ctx.organizationId, { practitionerId: target.practitionerId, roomId: v.roomId }, v.reserved, { kind: "APPOINTMENT", appointmentId: id });
+          if (ehrState === "PENDING_CREATE" || ehrState === "PENDING_UPDATE")
+            await queueEhrWrite(tx, ctx.organizationId, id, ehrState === "PENDING_CREATE" ? "CREATE" : "UPDATE", u!.version);
           await event(tx, ctx, id, { event: "RESCHEDULED", from: a.status, to: status, reason: d.reason, before: snapshot(a), after: snapshot(u!) });
           await audit(tx, ctx, {
             action: "appointment.reschedule",
@@ -655,12 +678,17 @@ export async function cancelAppointment(db: Db, ctx: AuthContext, id: string, in
     if (a.version !== d.version) throw versionConflict();
     if (!["PENDING", "CONFIRMED", "NEEDS_RESCHEDULE"].includes(a.status))
       throw new AppError("CONFLICT", "Only booked appointments can be cancelled.", [{ code: "BAD_STATUS", field: "status" }]);
+    // In the EHR (and not already cancelled there) → cancel it there too. A create still queued is skipped by the
+    // worker because the appointment is now CANCELLED.
+    const link = await ehrLinkOf(tx, ctx.organizationId, id);
+    const cancelInEhr = !!link && link.externalStatus !== "cancelled";
     const [u] = await tx
       .update(appointments)
-      .set({ status: "CANCELLED", cancelReason: d.reason, version: a.version + 1 })
+      .set({ status: "CANCELLED", cancelReason: d.reason, version: a.version + 1, ...(cancelInEhr ? { ehrState: "PENDING_CANCEL" } : {}) })
       .where(eq(appointments.id, id))
       .returning();
     await releaseFor(tx, ctx.organizationId, { appointmentId: id }, now);
+    if (cancelInEhr) await queueEhrWrite(tx, ctx.organizationId, id, "CANCEL", u!.version);
     await event(tx, ctx, id, { event: "CANCELLED", from: a.status, to: "CANCELLED", reason: d.reason });
     await audit(tx, ctx, { action: "appointment.cancel", resourceType: "appointment", resourceId: id });
     return u!;
@@ -857,8 +885,25 @@ export async function confirmPendingAppointment(db: Db, ctx: AuthContext, id: st
     if (a.status === "CONFIRMED") return { applied: null, appointment: a };
     if (a.version !== d.version) throw versionConflict();
     if (a.status !== "PENDING") throw new AppError("CONFLICT", "Only pending bookings can be confirmed.", [{ code: "BAD_STATUS", field: "status" }]);
+    const ehr = await siteEhr(tx, ctx.organizationId, a.siteId);
+    if (ehr.mode === "EHR_MASTER" && ["PENDING_CREATE", "PENDING_UPDATE"].includes(a.ehrState))
+      throw new AppError("CONFLICT", "Already sent to the EHR — it is confirmed automatically when the EHR accepts it.", [{ code: "EHR_PENDING" }]);
+    if (ehr.mode === "EHR_MASTER" && ehr.write === "UNAVAILABLE") throw ehrUnavailable();
     const applied = await reevaluate(tx, ctx, a, { trigger: "CONFIRM", now, eventName: "CONFIRM_EVALUATED", persistIfUnchanged: true });
     if (applied.eligibility.decision !== "ALLOW") return { applied, appointment: applied.appointment };
+    if (ehr.mode === "EHR_MASTER") {
+      // The EHR is the master schedule: "confirm" means send it; it becomes CONFIRMED when the EHR accepts it.
+      const link = await ehrLinkOf(tx, ctx.organizationId, id);
+      const op = link ? "UPDATE" : "CREATE";
+      const [u] = await tx
+        .update(appointments)
+        .set({ ehrState: link ? "PENDING_UPDATE" : "PENDING_CREATE", version: applied.appointment.version + 1 })
+        .where(eq(appointments.id, id))
+        .returning();
+      await queueEhrWrite(tx, ctx.organizationId, id, op, u!.version);
+      await event(tx, ctx, id, { event: "SENT_TO_EHR", from: "PENDING", to: "PENDING", reason: "Sent to the EHR — awaiting EHR confirmation" });
+      return { applied, appointment: u! };
+    }
     const [u] = await tx
       .update(appointments)
       .set({ status: "CONFIRMED", version: applied.appointment.version + 1 })
@@ -867,7 +912,12 @@ export async function confirmPendingAppointment(db: Db, ctx: AuthContext, id: st
     await event(tx, ctx, id, { event: "CONFIRMED", from: "PENDING", to: "CONFIRMED" });
     return { applied, appointment: u! };
   });
-  if (res.applied && res.applied.eligibility.decision !== "ALLOW") throw eligibilityError(res.applied.eligibility, " The booking stays pending.");
+  if (res.applied && res.applied.eligibility.decision !== "ALLOW") {
+    const codes = res.applied.eligibility.flags.filter((f) => f.severity !== "INFO").map((f) => f.code);
+    // Only the EHR stands in the way (stale / unreachable master schedule) → 503, the draft is kept.
+    if (codes.length && codes.every((c) => c === "EHR_STALE" || c === "EHR_UNAVAILABLE")) throw ehrUnavailable();
+    throw eligibilityError(res.applied.eligibility, " The booking stays pending.");
+  }
   return res.appointment;
 }
 

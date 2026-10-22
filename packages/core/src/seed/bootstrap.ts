@@ -33,7 +33,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: "compliance_officer",
     name: "Compliance Officer",
     description: "Publish licensure policy; review audit.",
-    permissions: ["policy.publish", "audit.read", "credentialing.read", "projects.read"],
+    permissions: ["policy.publish", "audit.read", "credentialing.read", "projects.read", "compliance.manage"],
   },
   {
     key: "rcm_supervisor",

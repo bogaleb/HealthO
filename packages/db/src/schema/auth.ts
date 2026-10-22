@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createdAt, updatedAt } from "./_common";
 
 /**
@@ -13,6 +13,8 @@ export const users = pgTable(
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
+    /** Better Auth two-factor plugin (TOTP). Required for privileged roles outside synthetic modes. */
+    twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -66,3 +68,22 @@ export const verifications = pgTable("verifications", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** TOTP secrets (encrypted by Better Auth with BETTER_AUTH_SECRET) and hashed backup codes. Never logged. */
+export const twoFactors = pgTable(
+  "two_factors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verified: boolean("verified").notNull().default(true),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("two_factors_user_idx").on(t.userId), index("two_factors_secret_idx").on(t.secret)],
+);

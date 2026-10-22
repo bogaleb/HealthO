@@ -1,8 +1,8 @@
 # PROGRESS — ProjectOS Health
 
-_Last updated: 2026-10-21 · Current phase: **Phase 6 complete → next is Phase 7 (Prompt 07)**_
+_Last updated: 2026-10-22 · Current phase: **Phase 7 complete (synthetic) → next is Phase 8 (Prompt 08_PRODUCTION_HARDENING)** · Readiness verdict: **NOT APPROVED FOR REAL PHI**_
 
-Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (no integration code exists yet). Not approved for PHI.
+Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** — only a synthetic EHR simulator exists (ADR-0012). **NOT APPROVED FOR REAL PHI** (docs/compliance/READINESS_REPORT.md).
 
 ## Phase status
 
@@ -15,8 +15,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 | 4 | Scheduling (synthetic demo): appointment types, rooms, working hours, time off/closures, synthetic patients, slot search, holds + expiry worker, booking/reschedule/cancel/status with DB exclusion constraint, calendar/find/new/setup UI | ✅ Done, verified |
 | 5 | Deterministic EligibilityService (license + payer + location + EHR + capacity), immutable evaluations, rescreen on book/reschedule/check-in/location/evidence change, follow-up tasks, waitlist offers | ✅ Done, verified |
 | 6 | RCM work queues/cases (synthetic claim refs), bulk assign + undo, escalation, project/credentialing links, operations dashboard + reports that reconcile, outbox-backed in-app reminders, worker health/replay, keyboard a11y tests | ✅ Done, verified |
-| 7 | EHR integration adapter (stub until vendor access) | ⏳ Next |
-| 8–9 | Hardening, SaaS | Not started |
+| 7 | EHR adapter contract + synthetic simulator, EHR_MASTER fail-closed write-through, availability/change sync, reconciliation, Integration Health, PHI-readiness checklist + checks, MFA, patient-read audit, downtime print, restore drill, clinic-day rehearsal | ✅ Done (synthetic), verified |
+| 8 | Production hardening | ⏳ Next |
+| 9 | Commercial expansion | Not started |
 
 ## What works (verified in a real browser against PostgreSQL 16)
 - Sign in / out (Better Auth, DB sessions, httpOnly cookies), generic error on bad credentials, sign-in rate limiting, redirect when signed out.
@@ -52,18 +53,25 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 - **Operations dashboard** (`/dashboard`) and **reports** (`/reports`, `/reports/[metric]`): 14 SQL metrics across scheduling, credentialing, RCM and projects; each tile number equals its drill-down's row count (same query), with definitions, sources, filters applied/ignored, date window, computed-at, source last-changed and an EHR-not-current warning. Filters: site, department, provider, from/to.
 - **Notifications** (`/notifications`, unread badge in the sidebar): due-soon/overdue RCM next actions and project tasks, assignments and escalations, delivered through a Postgres **transactional outbox** by the worker; exactly-once per due date. In-app only (no email/SMS).
 - **Worker & Outbox** (`/admin/worker`, org admins): job/outbox status counts, failed/dead rows with **Replay**, "Run reminder scan now".
+- **EHR integration (Phase 7, synthetic simulator only)**: per-site source of truth (DEMO / EHR_MASTER / READ_ONLY / STANDALONE_APPROVED). At the EHR_MASTER site (NEDC) bookings are sent to the EHR through the outbox and become Confirmed only when the EHR accepts them; outage/stale → drafts only and 503 on confirm; retries never duplicate; EHR-only busy times are imported and not offered; EHR-side cancellations/moves raise conflicts. **Integration Health** (`/admin/integrations`): mode, connection label (never "connected" for an unverified vendor), capability verification table, freshness, last success/error, EHR-state counts, conflicts with Accept EHR / Retry / Resolve / Dismiss, write queue with Replay, sync-run log, rehearsal controls for the simulator.
+- **PHI readiness** (`/admin/compliance`): verdict banner (NOT APPROVED FOR REAL PHI), 19-item evidence checklist with dual control, 10 automated checks, drill history.
+- **MFA** (`/account/security`, `/login/two-factor`): TOTP + 8 backup codes; required for privileged roles outside synthetic modes (opt-in with `REQUIRE_MFA_FOR_PRIVILEGED=true`).
+- **Downtime schedule** (`/scheduling/downtime`): printable paper schedule per site/day (audited). **Drills**: `pnpm ops:restore-drill` (encrypted backup + verified restore) and `pnpm ops:rehearsal` (scripted synthetic clinic day, 9 assertions).
 - **Recurring tasks** + **worker** (`pnpm worker`): Postgres job queue, dedupe keys, `SKIP LOCKED`, backoff, dead-letter, stale-lock recovery.
 
 ## Verification (commands actually run, 2026-10-21, Next.js 16.4.2)
 | Command | Result |
 |---|---|
 | `pnpm lint` / `pnpm format:check` | ✅ 0 errors / 0 warnings; formatted |
-| `pnpm typecheck` | ✅ all 12 packages |
+| `pnpm typecheck` | ✅ all 14 packages |
 | `pnpm test` | ✅ 80/80 unit |
-| `pnpm test:integration` | ✅ 109/109 (real PostgreSQL 16; +19 RCM, +10 reports/worker) |
-| `pnpm db:reset` (migrations 0000–0010 + all seeds incl. RCM) | ✅ |
+| `pnpm test:integration` | ✅ 127/127 (real PostgreSQL 16; +11 EHR write-through/sync/reconciliation, +7 compliance incl. full clinic-day rehearsal) |
+| `pnpm db:reset` (migrations 0000–0012 + all seeds incl. Phase 7) | ✅ |
 | `pnpm build` | ✅ |
-| `pnpm test:e2e` (fresh `db:reset`, `pnpm start` with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 37/37 on two consecutive fresh runs (incl. 3 RCM + 3 keyboard-only a11y specs) |
+| `pnpm test:e2e` (fresh `db:reset`, `pnpm start` with `AUTH_SIGNIN_MAX_PER_MIN=1000`) | ✅ 40/40 (incl. 3 Phase 7 specs: EHR-01/02 + Integration Health, readiness dual control, MFA) |
+| `pnpm ops:restore-drill` (with `BACKUP_ENCRYPTION_KEY`) | ✅ PASS — 0 mismatches, audit trigger restored, RTO ≈ 1 s |
+| `pnpm ops:rehearsal` | ✅ PASS 9/9 |
+| `pnpm security:scan` | ✅ no findings · `pnpm audit --prod`: 6 dev-tooling advisories (risk register #6) |
 | Windows one-click (`START-WINDOWS.cmd`) | ✅ Phases 0–2 verified on the user's PC; later phases delivered via the same script |
 | CI workflow (`.github/workflows/ci.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
@@ -82,6 +90,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 - Test isolation: integration tests that read the shared job queue now park other suites' jobs; event lists are ordered explicitly.
 - Phase 6: date defaults in the credentialing forms used the **UTC** date (after 8 pm Eastern a new license got tomorrow's effective date → readiness not yet effective) → local calendar date; e2e date helpers likewise use the org time zone.
 - Phase 6: a keyboard move on the board re-mounted the card and dropped focus → focus follows the card to its new column.
+- Phase 7: the booking module's legacy `EHR_WRITE_NOT_CONNECTED` review stayed for sites without a verified connection; write-through ALLOW is only possible with verified capabilities and a healthy health check.
 - Phase 6: a demo user name collided with an existing seeded approver → new RCM supervisor "Taylor Nguyen (Demo)".
 
 ## Known limitations / open items
@@ -92,7 +101,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 5. Rate limiting is in-memory per process (single instance only).
 6. Board "calendar" view uses due dates only (no start dates/durations).
 7. Saved filters per user and global search are not implemented.
-8. EHR (Phase 7) does not exist yet. Scheduling is a **synthetic demo** using DEMO policy rules. RCM is an internal work queue on synthetic claim references — no claim lines, 835/837, clearinghouse or payer connectivity.
+8. **No real EHR** — only the synthetic simulator; a vendor adapter needs vendor docs, sandbox access and capability sign-off. Scheduling is a **synthetic demo** using DEMO policy rules. RCM is an internal work queue on synthetic claim references — no claim lines, 835/837, clearinghouse or payer connectivity.
 9. **License policy rules are demo content, not verified law.** A real deployment needs counsel-reviewed rules entered and approved by two people.
 10. Credential evidence is entered manually; there is no primary-source (NPDB/state board/NURSYS) integration.
 11. E2E tests mutate the demo data: run `pnpm db:reset` before a full run.
@@ -104,9 +113,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** (n
 15. Legacy Phase 4 demo bookings on an existing database show "Not evaluated" until re-checked or rescreened (the worker does this hourly).
 
 ## Next 3 tasks
-1. **Prompt 07** (`prompts/07_*.md`): EHR integration adapter — stub/contract only until vendor API access and source-of-truth policy are verified.
-2. Generate OpenAPI from Zod schemas and contract-test `/api/v1`.
-3. Push to a private GitHub repo and get CI green on GitHub Actions.
+1. **Prompt 08 — production hardening** (`prompts/08_PRODUCTION_HARDENING.md`): nonce CSP, slim production image, vitest 4 upgrade, shared rate limiting, observability.
+2. External PHI-readiness tasks (docs/compliance/READINESS_REPORT.md) — owned by the organization, not the software.
+3. Generate OpenAPI from Zod schemas; push to a private GitHub repo and get CI green.
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build)

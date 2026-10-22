@@ -31,6 +31,10 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: psql postgresql://projectos:ci_only_password@localhost:5432/projectos -c "create database projectos_test"
+      - name: Secret scan (tracked files)
+        run: pnpm security:scan
+      - name: Dependency audit (report only; triaged in the risk register)
+        run: pnpm audit --prod || true
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test

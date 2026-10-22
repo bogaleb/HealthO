@@ -2,8 +2,40 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { hashPassword } from "better-auth/crypto";
+import { twoFactor } from "better-auth/plugins/two-factor";
+import { createAuthMiddleware, isAPIError } from "better-auth/api";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@projectos/db";
-import { accounts, sessions, users, verifications } from "@projectos/db/schema";
+import { accounts, auditEvents, memberships, sessions, twoFactors, users, verifications } from "@projectos/db/schema";
+
+/** MFA lifecycle events are security-relevant: record them in our append-only audit log (no codes, no secrets). */
+const MFA_AUDIT: Record<string, string> = {
+  "/two-factor/enable": "mfa.enable_started",
+  "/two-factor/verify-totp": "mfa.verify",
+  "/two-factor/verify-backup-code": "mfa.verify_backup_code",
+  "/two-factor/disable": "mfa.disable",
+  "/two-factor/generate-backup-codes": "mfa.backup_codes_regenerated",
+};
+
+async function auditMfa(path: string, userId: string | undefined, ok: boolean) {
+  const action = MFA_AUDIT[path];
+  if (!action || !userId) return;
+  const db = getDb();
+  const [m] = await db
+    .select({ organizationId: memberships.organizationId })
+    .from(memberships)
+    .where(and(eq(memberships.userId, userId), eq(memberships.status, "ACTIVE")));
+  await db.insert(auditEvents).values({
+    organizationId: m?.organizationId ?? null,
+    actorType: "USER",
+    actorUserId: userId,
+    action,
+    resourceType: "user",
+    resourceId: userId,
+    outcome: ok ? "ALLOW" : "DENY",
+    metadata: {},
+  });
+}
 
 function buildAuth() {
   const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
@@ -18,7 +50,7 @@ function buildAuth() {
     trustedOrigins: [baseURL],
     database: drizzleAdapter(getDb(), {
       provider: "pg",
-      schema: { user: users, session: sessions, account: accounts, verification: verifications },
+      schema: { user: users, session: sessions, account: accounts, verification: verifications, twoFactor: twoFactors },
     }),
     emailAndPassword: {
       enabled: true,
@@ -39,7 +71,20 @@ function buildAuth() {
       defaultCookieAttributes: { httpOnly: true, sameSite: "lax" },
     },
     telemetry: { enabled: false },
-    plugins: [nextCookies()],
+    hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        if (!MFA_AUDIT[ctx.path]) return;
+        const failed = isAPIError(ctx.context.returned);
+        const userId = ctx.context.newSession?.user.id ?? ctx.context.session?.user.id;
+        try {
+          await auditMfa(ctx.path, userId, !failed);
+        } catch {
+          /* audit failure must not break sign-in; logged by the DB */
+        }
+      }),
+    },
+    // TOTP (authenticator app) + one-time backup codes. Secrets are encrypted with BETTER_AUTH_SECRET by Better Auth.
+    plugins: [twoFactor({ issuer: "ProjectOS Health", backupCodeOptions: { amount: 8, length: 10 } }), nextCookies()],
   });
 }
 

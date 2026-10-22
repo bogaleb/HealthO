@@ -12,6 +12,7 @@
     "@projectos/core": "workspace:*",
     "@projectos/credentialing": "workspace:*",
     "@projectos/db": "workspace:*",
+    "@projectos/integrations": "workspace:*",
     "@projectos/notifications": "workspace:*",
     "@projectos/rcm": "workspace:*",
     "@projectos/scheduling": "workspace:*",

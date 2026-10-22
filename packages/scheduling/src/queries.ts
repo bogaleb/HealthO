@@ -19,7 +19,7 @@ import {
   sites,
 } from "@projectos/db/schema";
 import { can, hasAny, type AuthContext } from "@projectos/auth";
-import { parse } from "@projectos/core";
+import { audit, parse } from "@projectos/core";
 import { addDays, boundaryInstant, calendarQuery, notFound, weekdayOf } from "@projectos/shared";
 import { bookingEnabled, requireAnywhere, siteScope } from "./access";
 import { expandTemplates } from "./slots";
@@ -85,6 +85,8 @@ export async function getAppointment(db: Db, ctx: AuthContext, id: string) {
     .leftJoin(actor, and(eq(actor.userId, appointmentEvents.actorUserId), eq(actor.organizationId, appointmentEvents.organizationId)))
     .where(and(eq(appointmentEvents.organizationId, ctx.organizationId), eq(appointmentEvents.appointmentId, id)))
     .orderBy(asc(appointmentEvents.at));
+  // Opening an appointment that shows the patient's identity is a patient-record read (PHI-readiness audit coverage).
+  if (showPatient) await audit(db, ctx, { action: "patient.read", resourceType: "appointment", resourceId: id, metadata: { via: "appointment" } });
   return {
     ...row.a,
     patientName: showPatient ? row.patientName : RESTRICTED,

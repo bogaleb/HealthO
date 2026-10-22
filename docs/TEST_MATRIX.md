@@ -68,5 +68,17 @@
 | — | Outbox reminders idempotent (repeat scans/dispatches → one per due date; new due date re-arms); unassigned overdue → queue lead | int | ✅ |
 | — | Worker failure → FAILED → DEAD; replay (admin only, audited) delivers exactly once even after a crash-after-deliver; stale PROCESSING recovered; DEAD job replay | int | ✅ |
 | A11Y | Keyboard-only: board create + move (focus follows card, live announcement); find → hold → patient → book wizard; calendar drawer Enter/Escape + cancel; RCM bulk assign + undo | `e2e/a11y-keyboard.spec.ts` | ✅ |
-| EHR-* | EHR | — | ⏳ Phase 7 |
-| OPS-02 | Backup restore drill | — | ⏳ Phase 8 |
+| EHR-01 | Authoritative EHR unreachable → no local confirmation; draft only; confirm → 503 | `ehr.int.test.ts`, `e2e/phase7.spec.ts` (HTTP 409 EHR_UNAVAILABLE), rehearsal | ✅ |
+| EHR-02 | Timeout after the EHR wrote → retry → exactly one external appointment and one mapping | `ehr.int.test.ts`, rehearsal | ✅ |
+| — | DB CHECK: CONFIRMED impossible before EHR acceptance | `ehr.int.test.ts` | ✅ |
+| — | Stale master schedule → fail closed; sync restores | `ehr.int.test.ts` | ✅ |
+| — | Writes failing past max attempts → FAILED + conflict; Retry recovers; permanent errors DEAD at once | `ehr.int.test.ts` | ✅ |
+| — | Patient mapping: missing / ambiguous identifier → conflict, never guessed | `ehr.int.test.ts`, e2e | ✅ |
+| — | Reschedule (ETag update) and cancel written to the EHR | `ehr.int.test.ts` | ✅ |
+| — | EHR-only busy time imported, not offered, idempotent, released on cancel | `ehr.int.test.ts`, rehearsal | ✅ |
+| — | EHR-side cancel / move / delete → conflicts (deduped), Accept EHR without a second cancel; reconciliation idempotent | `ehr.int.test.ts`, e2e (UI) | ✅ |
+| — | Unverified vendor never shown connected; simulator controls need integrations.manage | int + e2e | ✅ |
+| — | PHI readiness: default NOT APPROVED; dual control in app (403 + DENY audit) and DB; synthetic mode keeps NOT APPROVED even with all items approved | `compliance.int.test.ts`, e2e | ✅ |
+| — | MFA enrol/verify/sign-in second factor/disable; required for privileged roles outside synthetic modes | e2e, `compliance.int.test.ts` | ✅ |
+| OPS-02 | Backup restore drill (encrypted, verified) | `pnpm ops:restore-drill` (PASS recorded) | ✅ manual command |
+| — | Synthetic clinic-day rehearsal (9 assertions) | `compliance.int.test.ts` + `pnpm ops:rehearsal` | ✅ |
