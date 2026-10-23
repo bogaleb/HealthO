@@ -132,7 +132,12 @@ export function FindAppointment({ refData, today, canBook, patientId }: { refDat
 
   return (
     <div className="space-y-5">
-      <form method="post" onSubmit={search} className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-4" aria-label="Find appointment">
+      <form
+        method="post"
+        onSubmit={search}
+        className="grid grid-cols-2 gap-3 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4 md:grid-cols-4"
+        aria-label="Find appointment"
+      >
         <Field label="Appointment type *" htmlFor="fa-type">
           <Select
             id="fa-type"
@@ -260,7 +265,7 @@ export function FindAppointment({ refData, today, canBook, patientId }: { refDat
             </p>
           )}
           {result.notOffered.length > 0 && (
-            <div className="rounded-lg border border-slate-200 bg-white" data-testid="not-offered">
+            <div className="rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]" data-testid="not-offered">
               <h3 className="border-b border-slate-200 px-3 py-2 text-[13px] font-semibold text-slate-700">
                 Not offered ({result.notOffered.length}) — has free time but is not eligible
               </h3>
@@ -289,7 +294,7 @@ export function FindAppointment({ refData, today, canBook, patientId }: { refDat
             </p>
           )}
           {grouped.map(([date, slots]) => (
-            <div key={date} className="rounded-lg border border-slate-200 bg-white">
+            <div key={date} className="rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
               <h3 className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-semibold text-slate-700">{formatDay(date)}</h3>
               <ul className="divide-y divide-slate-100">
                 {byProvider(slots).map(([key, ps]) => {

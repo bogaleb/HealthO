@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Field, Input } from "@projectos/ui";
 import { apiFetch, errorMessage } from "@/lib/client";
+import { AuthStage, StageCard } from "@/components/auth/AuthStage";
 
 export default function InvitePage() {
   const [token, setToken] = useState("");
@@ -28,9 +29,9 @@ export default function InvitePage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-navy-950 px-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h1 className="text-base font-semibold">Accept invitation</h1>
+    <AuthStage>
+      <StageCard>
+        <h1 className="text-[22px] font-semibold tracking-[-0.025em]">Accept invitation</h1>
         {done ? (
           <div className="mt-4 space-y-3 text-sm">
             <p role="status">
@@ -62,7 +63,7 @@ export default function InvitePage() {
             </Button>
           </form>
         )}
-      </div>
-    </main>
+      </StageCard>
+    </AuthStage>
   );
 }

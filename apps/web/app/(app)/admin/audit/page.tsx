@@ -60,7 +60,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           </label>
           <input id="a-action" name="action" defaultValue={q.action} placeholder="e.g. task.status" className="h-9 w-40 rounded-md border border-slate-300 bg-white px-2 text-sm" />
         </div>
-        <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white">
+        <button
+          type="submit"
+          className="press sheen h-9 rounded-full bg-ink-900 px-4 text-sm font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.12)_inset,0_8px_20px_-10px_rgb(43_51_105/0.55)] hover:bg-ink-800"
+        >
           Apply
         </button>
         <Link href="/admin/audit" className="px-2 py-2 text-sm text-slate-600 hover:underline">
@@ -70,7 +73,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       {r.items.length === 0 ? (
         <EmptyState title="No audit events match" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
           <table className="w-full text-left text-[13px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>

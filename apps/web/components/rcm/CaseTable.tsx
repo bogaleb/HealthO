@@ -147,7 +147,7 @@ export function CaseTable({
       {rows.length === 0 ? (
         <EmptyState title="No cases match these filters" description="Clear a filter or pick another queue." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
           <table className="w-full text-left text-[13px]" data-testid="rcm-case-table">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>

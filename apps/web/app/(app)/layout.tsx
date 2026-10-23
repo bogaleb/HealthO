@@ -62,16 +62,37 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-dvh flex-col">
       {banner && (
-        <div role="note" className="sticky top-0 z-30 flex h-7 items-center justify-center truncate bg-amber-400 px-4 text-center text-[12.5px] font-semibold text-amber-950">
+        <div
+          role="note"
+          className="sticky top-0 z-30 flex h-7 items-center justify-center truncate bg-amber-300 px-4 text-center text-[12.5px] font-semibold tracking-[-0.005em] text-amber-950 shadow-[0_1px_0_rgb(120_53_15/0.15)]"
+        >
           SYNTHETIC DEMO DATA · {mode} mode · Do not enter real patient information (PHI). Not approved for clinical use.
         </div>
       )}
       <div className="flex flex-1">
-        <aside className={`sticky hidden w-60 print:!hidden shrink-0 flex-col bg-navy-950 md:flex ${banner ? "top-7 h-[calc(100dvh-1.75rem)]" : "top-0 h-dvh"}`}>
-          <div className="border-b border-white/10 px-4 py-3.5">
-            <div className="text-[15px] font-semibold tracking-tight text-white">ProjectOS Health</div>
-            <div className="mt-0.5 truncate text-[12px] text-slate-400" title={org?.name}>
-              {org?.name}
+        <aside
+          className={`grain sticky hidden w-[248px] print:!hidden shrink-0 flex-col overflow-hidden bg-ink-950 md:flex ${banner ? "top-7 h-[calc(100dvh-1.75rem)]" : "top-0 h-dvh"}`}
+        >
+          {/* Pearl edge light + a faint aura at the top of the rail. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-px bg-[linear-gradient(180deg,rgba(201,206,216,0.0),rgba(246,227,214,0.35)_30%,rgba(195,207,240,0.35)_70%,rgba(195,207,240,0))]"
+          />
+          <div aria-hidden className="pointer-events-none absolute -left-24 -top-28 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(195,207,240,0.16),transparent_65%)]" />
+          <div className="relative px-5 pb-4 pt-5">
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden
+                className="pearl-bg grid h-7 w-7 place-items-center rounded-[9px] shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_6px_18px_-6px_rgba(195,207,240,0.55)]"
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-ink-950/85" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[15px] font-semibold tracking-[-0.02em] text-white">ProjectOS Health</div>
+                <div className="truncate text-[12px] text-slate-400" title={org?.name}>
+                  {org?.name}
+                </div>
+              </div>
             </div>
           </div>
           <SideNav
@@ -84,8 +105,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               { title: "Administration", items: admin },
             ]}
           />
-          <div className="border-t border-white/10 px-3 py-3">
-            <div className="truncate px-1 text-[13px] text-slate-200">{ctx.displayName}</div>
+          <div className="relative border-t border-white/[0.07] px-4 py-3.5">
+            <div className="flex items-center gap-2.5 px-1">
+              <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[11px] font-semibold text-slate-200 ring-1 ring-white/10">
+                {ctx.displayName
+                  .replace(/\(.*?\)/g, "")
+                  .trim()
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .slice(0, 2)
+                  .join("")}
+              </span>
+              <div className="truncate text-[13px] text-slate-200">{ctx.displayName}</div>
+            </div>
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <SignOutButton compact />
               <a href="/account/security" className="text-[12px] text-slate-400 underline hover:text-white">
@@ -95,8 +127,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2 md:hidden print:hidden">
-            <span className="font-semibold">ProjectOS Health</span>
+          <header className="flex items-center justify-between bg-ink-950 px-4 py-2.5 text-white md:hidden print:hidden">
+            <span className="flex items-center gap-2 font-semibold tracking-[-0.02em]">
+              <span aria-hidden className="pearl-bg h-5 w-5 rounded-md" />
+              ProjectOS Health
+            </span>
             <SignOutButton />
           </header>
           <nav aria-label="Mobile" className="print:hidden flex gap-3 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2 text-sm md:hidden">
@@ -106,7 +141,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </a>
             ))}
           </nav>
-          <main id="main" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8">
+          <main id="main" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-7 md:px-10 md:py-9">
             {children}
             {/* Changes on every server render; lets clients confirm a router.refresh() was committed. */}
             <span hidden data-render-stamp={randomUUID()} />

@@ -29,7 +29,7 @@ export default async function ReportsPage() {
             <h2 id={`r-${dom}`} className="mb-2 text-[15px] font-semibold">
               {dom}
             </h2>
-            <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
               {defs
                 .filter((d) => d.domainLabel === dom)
                 .map((d) => (

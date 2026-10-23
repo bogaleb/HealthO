@@ -99,7 +99,7 @@ export function CalendarGrid({ cal, apptHref }: { cal: Cal; apptHref: (id: strin
     );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white" role="region" aria-label="Schedule grid" tabIndex={0}>
+    <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]" role="region" aria-label="Schedule grid" tabIndex={0}>
       <div className="flex min-w-max">
         <div className="sticky left-0 z-10 w-16 shrink-0 border-r border-slate-200 bg-white">
           <div className="h-12 border-b border-slate-200" />

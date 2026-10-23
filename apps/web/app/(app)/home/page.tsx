@@ -8,24 +8,37 @@ import { Badge, Card, CardHeader, EmptyState, PageHeader } from "@projectos/ui";
 import { requireContext } from "@/lib/session";
 import { HEALTH_LABEL, HEALTH_TONE, formatDate, formatInstant } from "@/lib/format";
 import { TaskRowLink } from "@/components/tasks/TaskRowLink";
+import { CountUp } from "@/components/motion/CountUp";
 
 export const metadata: Metadata = { title: "Home" };
 
-function Metric({ label, value, href, definition }: { label: string; value: number; href?: string; definition: string }) {
+function Metric({ label, value, href, definition, index }: { label: string; value: number; href?: string; definition: string; index: number }) {
   const body = (
     <>
-      <div className="text-[12.5px] font-medium text-slate-600">{label}</div>
-      <div className="tabular mt-1 text-2xl font-semibold text-slate-900">{value}</div>
-      <div className="mt-1 text-[11.5px] leading-snug text-slate-500">{definition}</div>
+      <div className="text-[13px] font-medium text-slate-600">{label}</div>
+      <div className="display-title tabular mt-2 text-[40px] leading-none">
+        <CountUp value={value} delay={index * 70 + 200} />
+      </div>
+      <div className="mt-2.5 text-[12px] leading-snug text-slate-500">{definition}</div>
     </>
   );
+  const shell = "rise group relative block overflow-hidden rounded-2xl border border-[var(--hairline)] bg-white p-5 shadow-[var(--shadow-card)]";
+  const edge = (
+    <span
+      aria-hidden
+      className="pearl-bg absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 transition-transform duration-700 [transition-timing-function:var(--ease-out-expo)] group-hover:scale-x-100"
+    />
+  );
   return href ? (
-    <Link href={href} className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-teal-600 hover:shadow-sm">
+    <Link href={href} className={`${shell} lift`} style={{ ["--i" as string]: index }}>
+      {edge}
       {body}
       <span className="sr-only">— view the {value} records</span>
     </Link>
   ) : (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">{body}</div>
+    <div className={shell} style={{ ["--i" as string]: index }}>
+      {body}
+    </div>
   );
 }
 
@@ -52,19 +65,19 @@ export default async function HomePage() {
         }
       />
       {pm ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Metric label="My open tasks" value={pm.myOpen} href="/tasks?open=true&mine=true" definition="Owned by or shared with you; not Done/Cancelled." />
-          <Metric label="My overdue" value={pm.myOverdue} href={`/tasks?open=true&mine=true&dueTo=${yesterday}`} definition="Your open tasks due before today." />
-          <Metric label="Open tasks" value={pm.openTasks} href="/tasks?open=true" definition="All open tasks in projects visible to you." />
-          <Metric label="Overdue tasks" value={pm.overdueTasks} href={`/tasks?open=true&dueTo=${yesterday}`} definition="Open tasks due before today." />
-          <Metric label="Active projects" value={pm.activeProjects} href="/projects?status=ACTIVE" definition="Projects with status Active." />
+        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
+          <Metric index={0} label="My open tasks" value={pm.myOpen} href="/tasks?open=true&mine=true" definition="Owned by or shared with you; not Done/Cancelled." />
+          <Metric index={1} label="My overdue" value={pm.myOverdue} href={`/tasks?open=true&mine=true&dueTo=${yesterday}`} definition="Your open tasks due before today." />
+          <Metric index={2} label="Open tasks" value={pm.openTasks} href="/tasks?open=true" definition="All open tasks in projects visible to you." />
+          <Metric index={3} label="Overdue tasks" value={pm.overdueTasks} href={`/tasks?open=true&dueTo=${yesterday}`} definition="Open tasks due before today." />
+          <Metric index={4} label="Active projects" value={pm.activeProjects} href="/projects?status=ACTIVE" definition="Projects with status Active." />
         </div>
       ) : (
         <EmptyState title="No project access" description="Your role doesn’t include project visibility." />
       )}
 
       {canProjects && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="mt-7 grid gap-5 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader
               title="Needs attention"
@@ -121,7 +134,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <Card className="mt-6">
+      <Card className="mt-7">
         <CardHeader title="Organization" description="Reference data from PostgreSQL" />
         <dl className="grid grid-cols-2 gap-4 p-4 text-sm sm:grid-cols-4">
           <div>

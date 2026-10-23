@@ -90,7 +90,7 @@ export function WaitlistBoard({ entries, refData, canManage, today }: { entries:
           {entries.map((e) => {
             const open = e.offers.find((o) => o.status === "OFFERED");
             return (
-              <li key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 text-[13px]" data-testid="waitlist-entry">
+              <li key={e.id} className="rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-3 text-[13px]" data-testid="waitlist-entry">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="font-medium">
@@ -209,7 +209,7 @@ function AddEntry({ refData, today, onDone }: { refData: Ref; today: string; onD
     <form
       method="post"
       aria-label="Add to waitlist"
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="space-y-3 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4"
       onSubmit={async (e) => {
         e.preventDefault();
         if (!patient) return setErr("Choose a patient.");

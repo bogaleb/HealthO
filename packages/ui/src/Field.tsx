@@ -2,7 +2,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
 import { cn } from "./cn";
 
 const control =
-  "block w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 disabled:bg-slate-100 aria-[invalid=true]:border-red-600";
+  "block w-full rounded-[10px] border border-[var(--hairline-strong)] bg-white px-3 text-sm text-slate-900 shadow-[0_1px_2px_rgb(16_19_26/0.04)] transition-[border-color,box-shadow] duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15 disabled:bg-slate-100 aria-[invalid=true]:border-red-600";
 
 export function Field({
   label,

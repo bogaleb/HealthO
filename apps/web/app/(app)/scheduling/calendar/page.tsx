@@ -50,7 +50,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         actions={
           canBook ? (
             <div className="flex gap-2">
-              <Link href="/scheduling/find" className="inline-flex h-9 items-center rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800">
+              <Link
+                href="/scheduling/find"
+                className="press sheen inline-flex h-9 items-center rounded-full bg-ink-900 px-4 text-sm font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.12)_inset,0_8px_20px_-10px_rgb(43_51_105/0.55)] hover:bg-ink-800"
+              >
                 Find appointment
               </Link>
             </div>

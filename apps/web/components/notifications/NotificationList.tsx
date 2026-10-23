@@ -50,7 +50,7 @@ export function NotificationList({ items, unread }: { items: Item[]; unread: num
           {err}
         </p>
       )}
-      <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white" data-testid="notification-list">
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]" data-testid="notification-list">
         {items.map((n) => (
           <li key={n.id} className={`flex items-start justify-between gap-3 px-4 py-3 ${n.readAt ? "" : "bg-amber-50/50"}`}>
             <div className="min-w-0">

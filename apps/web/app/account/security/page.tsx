@@ -29,7 +29,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
             Your role is privileged. MFA is optional in this synthetic demo but is mandatory before any real-patient use.
           </p>
         )}
-        <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5">
+        <section className="mt-5 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-5">
           <MfaSetup enabled={enabled} />
         </section>
         {(!required || enabled) && (

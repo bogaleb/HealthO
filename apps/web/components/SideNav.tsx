@@ -88,14 +88,17 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
           prefetch={false}
           aria-current={active ? "page" : undefined}
           className={cn(
-            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] transition-colors",
-            active ? "bg-white/10 font-medium text-white" : "text-slate-300 hover:bg-white/5 hover:text-white",
+            "group relative flex items-center gap-2.5 rounded-[10px] px-2.5 py-[7px] text-[13.5px] tracking-[-0.005em] transition-[background-color,color,transform] duration-300 [transition-timing-function:var(--ease-spring)] active:scale-[0.98]",
+            active
+              ? "bg-white/[0.07] font-medium text-white shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset]"
+              : "text-slate-300 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white",
           )}
         >
-          <Icon className="h-4 w-4 shrink-0" aria-hidden />
+          {active && <span aria-hidden className="pearl-bg absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full shadow-[0_0_12px_2px_rgba(195,207,240,0.45)]" />}
+          <Icon className={cn("h-4 w-4 shrink-0 transition-colors", active ? "text-[#c3cff0]" : "text-slate-400 group-hover:text-slate-200")} aria-hidden />
           <span className="flex-1">{n.label}</span>
           {n.badge ? (
-            <span className="tabular rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-amber-950" data-testid="nav-badge">
+            <span className="tabular rounded-full bg-[#ffa582] px-1.5 text-[11px] font-semibold text-ink-950 shadow-[0_0_14px_-2px_rgba(255,165,130,0.7)]" data-testid="nav-badge">
               {n.badge}
               <span className="sr-only"> unread</span>
             </span>
@@ -105,16 +108,16 @@ export function SideNav({ sections }: { sections: NavSection[] }) {
     );
   };
   return (
-    <nav aria-label="Main" className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+    <nav aria-label="Main" className="relative flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-2">
       {sections
         .filter((s) => s.items.length)
         .map((s, i) => (
           <div key={i}>
-            {s.title && <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{s.title}</p>}
+            {s.title && <p className="mb-1.5 px-2.5 text-[12px] font-medium text-slate-400">{s.title}</p>}
             <ul className="space-y-0.5">{s.items.map(item)}</ul>
           </div>
         ))}
-      <div className="mt-auto rounded-md border border-white/10 px-2.5 py-2 text-[11.5px] leading-snug text-slate-400">
+      <div className="mt-auto rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 text-[11.5px] leading-snug text-slate-400">
         <p className="font-semibold text-slate-300">Not built yet</p>
         <p className="mt-0.5">Real EHR connection (only a synthetic simulator exists), outbound email/SMS. NOT APPROVED FOR REAL PHI.</p>
       </div>

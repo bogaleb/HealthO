@@ -15,7 +15,7 @@ const tones: Record<Tone, string> = {
 /** Status chip. Always carries a text label — color is never the only signal. */
 export function Badge({ tone = "neutral", children, className, icon }: { tone?: Tone; children: ReactNode; className?: string; icon?: ReactNode }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11.5px] font-medium ring-1 ring-inset whitespace-nowrap", tones[tone], className)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-medium ring-1 ring-inset whitespace-nowrap", tones[tone], className)}>
       {icon}
       {children}
     </span>

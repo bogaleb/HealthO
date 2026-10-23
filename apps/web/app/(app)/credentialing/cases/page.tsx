@@ -81,7 +81,10 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
           </select>
         </div>
         {q.practitionerId && <input type="hidden" name="practitionerId" value={q.practitionerId} />}
-        <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white">
+        <button
+          type="submit"
+          className="press sheen h-9 rounded-full bg-ink-900 px-4 text-sm font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.12)_inset,0_8px_20px_-10px_rgb(43_51_105/0.55)] hover:bg-ink-800"
+        >
           Apply
         </button>
         <Link href="/credentialing/cases" className="px-2 py-2 text-sm text-slate-600 hover:underline">
@@ -91,7 +94,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
       {cases.length === 0 ? (
         <EmptyState title="No cases match" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>

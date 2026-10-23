@@ -39,7 +39,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
             key={s ?? "all"}
             href={s ? `/projects?status=${s}` : "/projects"}
             aria-current={st === s ? "page" : undefined}
-            className={`rounded-full border px-2.5 py-0.5 ${st === s ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+            className={`rounded-full border px-2.5 py-0.5 ${st === s ? "border-ink-900 bg-ink-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
           >
             {s ? PROJECT_STATUS_LABEL[s] : "All"}
           </Link>
@@ -48,7 +48,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       {projects.length === 0 ? (
         <EmptyState title="No projects to show" description={st ? "No projects with this status." : "Create a project or start from a department template."} />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
           <table className="w-full text-left text-[13.5px]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-600">
               <tr>

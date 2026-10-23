@@ -153,7 +153,7 @@ export function NewAppointmentForm({
   };
 
   return (
-    <form method="post" onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_24rem]" aria-label="New appointment">
+    <form method="post" onSubmit={submit} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]" aria-label="New appointment">
       <div className="space-y-5">
         {err && (
           <div>
@@ -169,12 +169,12 @@ export function NewAppointmentForm({
             )}
           </div>
         )}
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="space-y-3 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4">
           <h2 className="text-[15px] font-semibold">1. Patient</h2>
           <PatientPicker value={patient} onChange={setPatient} canCreate />
         </section>
 
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="space-y-3 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4">
           <h2 className="text-[15px] font-semibold">2. Time and provider</h2>
           {hold ? (
             <div className="text-sm" data-testid="hold-summary">
@@ -275,7 +275,7 @@ export function NewAppointmentForm({
           )}
         </section>
 
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <section className="space-y-3 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4">
           <h2 className="text-[15px] font-semibold">3. Patient location at the time of the visit, and payer</h2>
           <p className="text-[12.5px] text-slate-600">
             Record where the patient will physically be — it decides which license applies. Home address, mailing address and phone area code do not count. It is re-checked at
@@ -316,7 +316,7 @@ export function NewAppointmentForm({
       </div>
 
       <aside className="space-y-3 lg:sticky lg:top-12 lg:self-start">
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
+        <div className="space-y-2 rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] p-4 text-sm">
           <h2 className="text-[15px] font-semibold">Eligibility</h2>
           {!target && <p className="text-[12.5px] text-slate-500">Choose a provider and time to evaluate.</p>}
           {target && previewing && !preview && <Spinner label="Evaluating" />}

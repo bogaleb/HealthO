@@ -54,7 +54,7 @@ export default async function CalendarPage({ params, searchParams }: { params: P
         </Link>
         <span className="ml-auto text-[12.5px] text-slate-500">Tasks shown on their due date (date-only, no time-zone shift). {tasks.length} this month.</span>
       </div>
-      <div role="grid" aria-label={`Tasks due in ${title}`} className="grid grid-cols-7 overflow-hidden rounded-lg border border-slate-200 bg-slate-200 [gap:1px]">
+      <div role="grid" aria-label={`Tasks due in ${title}`} className="grid grid-cols-7 overflow-hidden rounded-2xl border border-[var(--hairline)] bg-slate-200 [gap:1px]">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} role="columnheader" className="bg-slate-50 px-2 py-1.5 text-[12px] font-semibold text-slate-600">
             {d}

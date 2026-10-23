@@ -3,6 +3,12 @@
 All notable changes. Versions follow SemVer; release images are tagged by git SHA. **Synthetic data only — NOT APPROVED FOR REAL PHI.**
 
 ## Unreleased (0.3.0-rc.2)
+- **New interface — "Pearl & Ink"** (ADR-0016):
+  - Ink shell and cinematic sign-in, with a line-reveal headline and a clinic-day rail.
+  - Pearl accents and Onest typography.
+  - Spring motion (CSS `linear()` springs) on titles, buttons, dialogs, drawers and metric tiles; count-up numbers.
+  - Fully disabled under reduced motion.
+  - Fixed: modal dialogs were pinned to the top-left corner (no `m-auto` after Tailwind's preflight reset).
 - **Row-level security** on every tenant table (migration 0015, ADR-0015); runtime role bound to its organization via `infra/sql/app-role.sql -v org_slug=…`; fail closed when unbound.
 - Fixed: credential/rule form dates used the browser's time zone instead of the organization's.
 - Phase 9 commercial-SaaS estimate and ADR-0014 (proposed; implementation gated on a pilot).

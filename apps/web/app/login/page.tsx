@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { appMode, isSyntheticMode } from "@projectos/shared";
 import { getRequestContext } from "@/lib/session";
 import { LoginForm } from "./LoginForm";
+import { AuthStage, StageCard } from "@/components/auth/AuthStage";
 
 export const metadata: Metadata = { title: "Sign in" };
 export const dynamic = "force-dynamic";
@@ -24,40 +25,46 @@ export default async function LoginPage() {
   const mode = appMode();
   const showDemo = isSyntheticMode(mode);
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-navy-950 px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="text-lg font-semibold tracking-tight text-white">ProjectOS Health</div>
-          <p className="mt-1 text-sm text-slate-400">Healthcare operations workspace</p>
-        </div>
-        <div className="rounded-xl bg-white p-6 shadow-xl">
-          <h1 className="text-base font-semibold text-slate-900">Sign in</h1>
-          <p className="mt-1 text-sm text-slate-500">Staff accounts are created by invitation.</p>
-          <LoginForm />
-        </div>
-        {showDemo && (
-          <div className="mt-4 rounded-lg border border-amber-400/40 bg-amber-50/95 p-4 text-[13px] text-amber-950">
-            <p className="font-semibold">SYNTHETIC DEMO ({mode})</p>
-            <p className="mt-1">
-              Seeded fictional accounts — the password is the <code className="rounded bg-amber-100 px-1">DEMO_PASSWORD</code> value in your local{" "}
-              <code className="rounded bg-amber-100 px-1">.env</code>. Never enter real patient information.
+    <AuthStage hero>
+      <StageCard>
+        <h1 className="text-[22px] font-semibold tracking-[-0.025em] text-slate-900">Sign in</h1>
+        <p className="mt-1 text-sm text-slate-500">Staff accounts are created by invitation.</p>
+        <LoginForm />
+        <p className="mt-5 border-t border-[var(--hairline)] pt-4 text-center text-[13px] text-slate-500">
+          Have an invitation code?{" "}
+          <a className="font-medium text-teal-700 underline decoration-teal-300 underline-offset-2 hover:decoration-teal-700" href="/invite">
+            Accept invitation
+          </a>
+        </p>
+      </StageCard>
+      {showDemo && (
+        <details
+          className="rise group mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.07] text-[13px] text-amber-50 backdrop-blur"
+          style={{ ["--d" as string]: "420ms" }}
+          open
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 font-semibold text-amber-200">
+            Synthetic demo ({mode}): fictional accounts
+            <span aria-hidden className="text-amber-200/70 transition-transform duration-300 group-open:rotate-180">
+              ⌄
+            </span>
+          </summary>
+          <div className="px-4 pb-4">
+            <p className="text-amber-50/90">
+              The password is the <code className="rounded bg-white/10 px-1">DEMO_PASSWORD</code> value in your local <code className="rounded bg-white/10 px-1">.env</code>. Never
+              enter real patient information.
             </p>
-            <ul className="mt-2 space-y-0.5">
+            <ul className="mt-2.5 space-y-1">
               {DEMO_EMAILS.map(([e, role]) => (
-                <li key={e}>
-                  <span className="font-mono text-[12px]">{e}</span> — {role}
+                <li key={e} className="flex flex-col">
+                  <span className="text-[12.5px] text-white">{e}</span>
+                  <span className="text-[12px] text-amber-50/70">{role}</span>
                 </li>
               ))}
             </ul>
           </div>
-        )}
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Have an invitation code?{" "}
-          <a className="text-teal-300 underline" href="/invite">
-            Accept invitation
-          </a>
-        </p>
-      </div>
-    </main>
+        </details>
+      )}
+    </AuthStage>
   );
 }

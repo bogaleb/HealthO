@@ -18,6 +18,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
+    // The UI uses spring/line-reveal motion; tests run with reduced motion so assertions never race an animation
+    // (the app honours prefers-reduced-motion everywhere — this also exercises that path).
+    contextOptions: { reducedMotion: "reduce" },
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],

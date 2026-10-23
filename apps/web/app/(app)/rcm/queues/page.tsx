@@ -146,7 +146,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
         )}
       </section>
 
-      <div className="grid gap-6 2xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-labelledby="cases-h" className="min-w-0 2xl:col-start-1 2xl:row-start-1">
           <h2 id="cases-h" className="mb-2 text-[15px] font-semibold">
             Cases {activeQueue ? `— ${activeQueue.name}` : ""} <span className="tabular text-sm font-normal text-slate-500">({list.total})</span>
@@ -252,7 +252,10 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
               </label>
               <input id="f-q" name="q" defaultValue={q.q ?? ""} placeholder="RCM-0012 or SYN-…" className={`${sel} w-44`} />
             </div>
-            <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white">
+            <button
+              type="submit"
+              className="press sheen h-9 rounded-full bg-ink-900 px-4 text-sm font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.12)_inset,0_8px_20px_-10px_rgb(43_51_105/0.55)] hover:bg-ink-800"
+            >
               Apply
             </button>
             <Link href="/rcm/queues" className="px-2 py-2 text-sm text-slate-600 hover:underline">
@@ -282,7 +285,7 @@ export default async function QueuesPage({ searchParams }: { searchParams: Promi
           <h2 id="workload-h" className="mb-2 text-[15px] font-semibold">
             Owner workload {activeQueue ? "(this queue)" : ""}
           </h2>
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white 2xl:max-w-none max-w-xl">
+          <div className="overflow-hidden rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)] 2xl:max-w-none max-w-xl">
             <table className="w-full text-left text-[12.5px]" data-testid="workload-table">
               <thead className="bg-slate-50 text-[11.5px] font-semibold text-slate-600">
                 <tr>

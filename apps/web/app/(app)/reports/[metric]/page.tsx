@@ -80,7 +80,7 @@ export default async function MetricPage({ params, searchParams }: { params: Pro
       {r.rows.length === 0 ? (
         <EmptyState title="No matching records" description="Nothing meets this definition with the current filters." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--hairline)] bg-white shadow-[var(--shadow-card)]">
           <table className="w-full text-left text-[13px]" data-testid="report-table">
             <caption className="sr-only">
               {r.metric.label} — {r.total} rows

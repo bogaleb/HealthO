@@ -20,7 +20,7 @@ export function SignOutButton({ compact }: { compact?: boolean }) {
         type="button"
         onClick={onClick}
         disabled={busy}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-slate-200 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-teal-400 disabled:opacity-60"
+        className="press inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-slate-200 hover:bg-white/[0.08] hover:text-white focus-visible:outline-2 focus-visible:outline-teal-300 disabled:opacity-60"
       >
         <LogOut className="h-3.5 w-3.5" aria-hidden /> Sign out
       </button>

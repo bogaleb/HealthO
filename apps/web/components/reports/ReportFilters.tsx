@@ -91,7 +91,10 @@ export async function ReportFilterForm({ ctx, values, action, extra }: { ctx: Au
         </label>
         <input id="rf-to" type="date" name="to" defaultValue={values.to ?? ""} className={sel} />
       </div>
-      <button type="submit" className="h-9 rounded-md bg-teal-700 px-3 text-sm font-medium text-white">
+      <button
+        type="submit"
+        className="press sheen h-9 rounded-full bg-ink-900 px-4 text-sm font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.12)_inset,0_8px_20px_-10px_rgb(43_51_105/0.55)] hover:bg-ink-800"
+      >
         Apply
       </button>
       <Link href={action} className="px-2 py-2 text-sm text-slate-600 hover:underline">

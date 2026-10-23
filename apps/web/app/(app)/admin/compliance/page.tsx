@@ -45,7 +45,7 @@ export default async function CompliancePage() {
         <p className="mt-1 text-[12px] opacity-80">Computed {formatInstant(r.computedAt)}.</p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
           <CardHeader
             title="Evidence checklist"

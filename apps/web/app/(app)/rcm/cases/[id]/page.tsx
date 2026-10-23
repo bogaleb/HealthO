@@ -65,7 +65,7 @@ export default async function RcmCasePage({ params }: { params: Promise<{ id: st
         description={`${RCM_CASE_TYPE_LABEL[c.caseType as RcmCaseType]} · ${c.claimRef} · ${d.payer.name}${d.plan ? ` · ${d.plan.name}` : ""}`}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           <Card>
             <CardHeader title="Work this case" description={d.ownerName ? `Owner: ${d.ownerName}` : "Unassigned"} />

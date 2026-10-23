@@ -7,6 +7,7 @@ import { requireContext } from "@/lib/session";
 import { Forbidden } from "@/components/Forbidden";
 import { Freshness } from "@/components/reports/Freshness";
 import { ReportFilterForm, pickReportFilters } from "@/components/reports/ReportFilters";
+import { CountUp } from "@/components/motion/CountUp";
 
 export const metadata: Metadata = { title: "Operations Dashboard" };
 
@@ -24,23 +25,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       />
       <ReportFilterForm ctx={ctx} values={filters} action="/dashboard" />
       <Freshness computedAt={d.freshness.computedAt} timezone={d.filters.timezone} today={d.filters.today} ehrNotCurrent={d.freshness.ehrNotCurrent} />
-      <div className="space-y-6">
+      <div className="space-y-9">
         {d.domains.map((dom) => (
           <section key={dom.domain} aria-labelledby={`dom-${dom.domain}`}>
-            <h2 id={`dom-${dom.domain}`} className="mb-2 text-[15px] font-semibold text-slate-800">
+            <h2 id={`dom-${dom.domain}`} className="mb-3 text-[16px] font-semibold tracking-[-0.015em] text-slate-800">
               {dom.label}
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {dom.tiles.map((t) => (
+              {dom.tiles.map((t, i) => (
                 <Link
                   key={t.key}
                   href={`/reports/${t.key}${qs ? `?${qs}` : ""}`}
-                  className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-teal-600 hover:shadow-sm"
+                  className="rise lift group relative block overflow-hidden rounded-2xl border border-[var(--hairline)] bg-white p-5 shadow-[var(--shadow-card)]"
+                  style={{ ["--i" as string]: i }}
                   data-testid={`tile-${t.key}`}
                 >
-                  <div className="text-[12.5px] font-medium text-slate-600">{t.label}</div>
-                  <div className={`tabular mt-1 text-2xl font-semibold ${t.attention && t.value > 0 ? "text-amber-800" : "text-slate-900"}`} data-testid="tile-value">
-                    {t.value}
+                  <span
+                    aria-hidden
+                    className="pearl-bg absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 transition-transform duration-700 [transition-timing-function:var(--ease-out-expo)] group-hover:scale-x-100"
+                  />
+                  <div className="text-[13px] font-medium text-slate-600">{t.label}</div>
+                  <div
+                    className={`tabular mt-2 text-[36px] font-[340] leading-none tracking-[-0.03em] ${t.attention && t.value > 0 ? "text-amber-800" : "display-title"}`}
+                    data-testid="tile-value"
+                  >
+                    <CountUp value={t.value} delay={i * 70 + 150} />
                   </div>
                   <div className="mt-1 text-[11.5px] leading-snug text-slate-500">{t.definition}</div>
                   {(t.dateBasis || t.ignored.length > 0) && (
