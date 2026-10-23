@@ -80,7 +80,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | `tofu validate` · `tofu test` · checkov 3.2.400 | ✅ valid · ✅ 4/4 · ✅ 313 passed / 0 failed / 16 justified skips — **never applied** |
 | `docker build` web/worker/migrate on the user's PC (Docker Desktop) + container smoke | ✅ built (434/331/332 MB); non-root; migrate ok; worker tick ok; web healthy, ready 200, CSP nonce 17/17, sign-in 200 |
 | Windows one-click (`START-WINDOWS.cmd`) with Phase 8 | ✅ migrations 0013–0014 applied, Next 16 dev with nonce CSP, sign-in → Home, PHI Readiness page |
-| CI workflows (`ci.yml`, `security.yml`) | written, **not yet executed** (no GitHub repo connected) |
+| GitHub Actions on `bogaleb/HealthO` (`af1df6c`) | ✅ **CI** all steps green (lint → e2e → log scan → load test → drills, runner in UTC); ✅ **Security** green (CodeQL, gitleaks history, audit, tofu + checkov, image build + Trivy). First run failed on a real time-zone bug (fixed above). |
 
 ## Issues found and fixed during verification
 - Phase 8 (first GitHub CI run): with the **browser in a different time zone than the organization** (CI runs in UTC), credential and rule forms defaulted dates to the browser's day, so evidence entered after 8 pm Eastern was "not yet effective" → forms and server now share `ORG_TIMEZONE`; whole e2e suite re-run with `TZ=UTC` (45/45).
@@ -128,7 +128,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 
 ## Next 3 tasks
 1. **Prompt 09 — commercial expansion** (`prompts/09_COMMERCIAL_EXPANSION.md`).
-2. Clear RC SEC-SAST: push to a private GitHub repo so `ci.yml` + `security.yml` (CodeQL, gitleaks, Trivy) run.
+2. Review the CodeQL results in the GitHub Security tab (owner sign-in) and enable branch protection on `main` requiring the CI + Security checks.
 3. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop).
 
 ## Accepted ADRs
