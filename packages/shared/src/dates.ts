@@ -15,3 +15,10 @@ export function addDays(isoDate: string, days: number): string {
 export function weekdayOf(isoDate: string): number {
   return new Date(`${isoDate}T00:00:00Z`).getUTCDay();
 }
+
+/**
+ * The organization's operating time zone for calendar-day rules (credential effective/expiry dates, readiness "as of").
+ * Single-organization build: the seeded org is in US Eastern. Forms default dates in THIS zone, not the browser's,
+ * so a user whose computer is set to another zone cannot create evidence that is "not yet effective" for the server.
+ */
+export const ORG_TIMEZONE = "America/New_York";

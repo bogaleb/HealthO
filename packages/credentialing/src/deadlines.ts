@@ -2,7 +2,7 @@ import { and, eq, gte, lte, lt, sql } from "drizzle-orm";
 import type { Db } from "@projectos/db";
 import { authorityVerifications, credentialDeadlineNotices, departments, practitioners, professionalAuthorities, projects, tasks } from "@projectos/db/schema";
 import { audit } from "@projectos/core";
-import { addDays, todayIn } from "@projectos/shared";
+import { addDays, ORG_TIMEZONE, todayIn } from "@projectos/shared";
 
 export const DEADLINE_THRESHOLDS = [90, 60, 30] as const;
 const RENEWAL_PROJECT_KEY = "RENEW";
@@ -47,7 +47,7 @@ async function ensureRenewalProject(db: Db, organizationId: string) {
  *     (authority, threshold, expiry date) guarantees repeated/concurrent runs never duplicate.
  */
 export async function runCredentialDeadlines(db: Db, opts: { organizationId?: string; now?: Date } = {}) {
-  const today = todayIn("America/New_York", opts.now);
+  const today = todayIn(ORG_TIMEZONE, opts.now);
   const orgFilter = opts.organizationId ? eq(professionalAuthorities.organizationId, opts.organizationId) : sql`true`;
   let expired = 0;
   let created = 0;

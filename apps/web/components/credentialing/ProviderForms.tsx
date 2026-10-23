@@ -12,6 +12,7 @@ import {
   PROFESSIONS,
   PROFESSION_LABEL,
   US_JURISDICTIONS,
+  ORG_TIMEZONE,
   todayIn,
   type Profession,
 } from "@projectos/shared";
@@ -26,7 +27,7 @@ interface Ref {
 }
 const states = US_JURISDICTIONS.map((j) => ({ value: j, label: j }));
 // Local calendar date (not UTC: after 8 pm Eastern the UTC date is already tomorrow).
-const today = () => todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone);
+const today = () => todayIn(ORG_TIMEZONE);
 
 export function NewProviderButton({ reference }: { reference: Ref }) {
   const router = useRouter();

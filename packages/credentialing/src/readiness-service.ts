@@ -3,7 +3,7 @@ import type { Db } from "@projectos/db";
 import { payerPlans, payers, practitionerSites, practitioners, professionalAuthorities, providerEnrollments, sites } from "@projectos/db/schema";
 import type { AuthContext } from "@projectos/auth";
 import { authorize, parse } from "@projectos/core";
-import { readinessQuery, todayIn, type AuthorityType, type Profession } from "@projectos/shared";
+import { ORG_TIMEZONE, readinessQuery, todayIn, type AuthorityType, type Profession } from "@projectos/shared";
 import { practitionerScopeWhere } from "./access";
 import { evaluateLicenseReadiness, evaluatePayerReadiness, type AuthorityFact, type RuleFact } from "./readiness";
 import { loadApprovedRules } from "./rules";
@@ -35,7 +35,7 @@ export function toRuleFact(r: Awaited<ReturnType<typeof loadApprovedRules>>[numb
 export async function getReadinessMatrix(db: Db, ctx: AuthContext, query: unknown) {
   await authorize(db, ctx, "credentialing.read", "ANY");
   const q = parse(readinessQuery, query);
-  const asOf = todayIn("America/New_York");
+  const asOf = todayIn(ORG_TIMEZONE);
   const date = q.date ?? asOf;
   const where = [practitionerScopeWhere(ctx), eq(practitioners.active, true)];
   if (q.profession) where.push(eq(practitioners.profession, q.profession));

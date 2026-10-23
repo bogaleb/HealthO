@@ -11,6 +11,7 @@ import {
   SERVICE_CATEGORIES,
   US_JURISDICTIONS,
   addDays,
+  ORG_TIMEZONE,
   todayIn,
 } from "@projectos/shared";
 import { apiFetch } from "@/lib/client";
@@ -19,7 +20,7 @@ import { FormDialog, orNull } from "@/components/FormDialog";
 
 const states = US_JURISDICTIONS.map((j) => ({ value: j, label: j }));
 // Local calendar date (not UTC: after 8 pm Eastern the UTC date is already tomorrow).
-const plus = (n: number) => addDays(todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone), n);
+const plus = (n: number) => addDays(todayIn(ORG_TIMEZONE), n);
 
 export function NewRuleButton() {
   return (

@@ -14,7 +14,7 @@ import {
 } from "@projectos/db/schema";
 import { hasAny, type AuthContext } from "@projectos/auth";
 import { audit, authorize, parse } from "@projectos/core";
-import { AppError, PROFESSIONS, US_JURISDICTIONS, addDays, practitionerCreate, practitionerUpdate, todayIn, versionConflict } from "@projectos/shared";
+import { AppError, PROFESSIONS, US_JURISDICTIONS, addDays, practitionerCreate, practitionerUpdate, ORG_TIMEZONE, todayIn, versionConflict } from "@projectos/shared";
 import { canOnPractitioner, loadPractitioner, practitionerScopeWhere } from "./access";
 
 const listQuery = z.object({
@@ -45,7 +45,7 @@ export async function listReference(db: Db, ctx: AuthContext) {
 export async function listPractitioners(db: Db, ctx: AuthContext, query: unknown) {
   await authorize(db, ctx, "credentialing.read", "ANY");
   const q = parse(listQuery, query);
-  const today = todayIn("America/New_York");
+  const today = todayIn(ORG_TIMEZONE);
   const soon = addDays(today, 90);
   const where: SQL[] = [practitionerScopeWhere(ctx)];
   if (q.includeInactive !== "true") where.push(eq(practitioners.active, true));

@@ -83,6 +83,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | CI workflows (`ci.yml`, `security.yml`) | written, **not yet executed** (no GitHub repo connected) |
 
 ## Issues found and fixed during verification
+- Phase 8 (first GitHub CI run): with the **browser in a different time zone than the organization** (CI runs in UTC), credential and rule forms defaulted dates to the browser's day, so evidence entered after 8 pm Eastern was "not yet effective" → forms and server now share `ORG_TIMEZONE`; whole e2e suite re-run with `TZ=UTC` (45/45).
 - Phase 8: **authorization after state read** — RCM bulk-assign undo and waitlist offer returned 409 to a read-only user before checking permission (found by the privilege matrix) → permission checked first.
 - Phase 8: **X-Forwarded-For** with more than one entry made Better Auth's client IP unknown, so a client could defeat per-IP limits behind a proxy → `TRUSTED_PROXY_CIDRS`.
 - Phase 8: the clean-deployment restore drill was **locked out by restored rate-limit counters** → ephemeral counters excluded from dumps.

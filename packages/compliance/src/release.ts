@@ -101,6 +101,20 @@ function migrationsWithExtra(tag: string, sqlText: string) {
   return dir;
 }
 
+/** Every table privilege granted to non-owner roles in the public schema, as one comparable string. */
+async function grantSnapshot(url: URL) {
+  const pg = postgres(url.toString(), { max: 1, onnotice: () => {} });
+  try {
+    const rows = await pg<{ g: string }[]>`
+      select grantee || ':' || table_name || ':' || privilege_type as g from information_schema.role_table_grants
+      where table_schema = 'public' and grantee not in (select tableowner from pg_tables where schemaname = 'public')
+      order by 1`;
+    return rows.map((r) => r.g).join(",");
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function migrationRollbackDrill(sourceUrl: string) {
   const src = new URL(sourceUrl);
   const scratch = new URL(src.toString());
@@ -113,6 +127,7 @@ export async function migrationRollbackDrill(sourceUrl: string) {
     await recreateDatabase(scratch);
     restoreDump(scratch, dumpDatabase(src, { keepPrivileges: true }), { keepPrivileges: true });
     const base = await fingerprint(scratch);
+    const grantsBefore = await grantSnapshot(scratch);
     // A) The migration itself errors half-way (a statement after a successful one fails).
     const a = migrationsWithExtra("9998_drill_sql_error", 'CREATE TABLE "drill_tmp" ("id" int);--> statement-breakpoint\nSELECT 1 / 0;');
     dirs.push(a);
@@ -125,16 +140,8 @@ export async function migrationRollbackDrill(sourceUrl: string) {
     summary.destructive = { status: rb.status, error: rb.error?.slice(0, 200), dataRestoredIdentical: rb.dataRestoredIdentical };
     const after = await fingerprint(scratch);
     summary.scratchMatchesSourceCopy = sameData(base, after);
-    // The least-privilege runtime role (if this server has it) must still have its grants after the rollback.
-    const pg = postgres(scratch.toString(), { max: 1, onnotice: () => {} });
-    try {
-      const [r] = await pg<{ has: boolean | null }[]>`
-        select case when exists (select 1 from pg_roles where rolname = 'projectos_app')
-          then has_table_privilege('projectos_app', 'public.tasks', 'SELECT,INSERT,UPDATE') end as has`;
-      summary.appRoleGrantsAfterRollback = r?.has ?? "no app role on this server";
-    } finally {
-      await pg.end();
-    }
+    // Grants (e.g. the least-privilege runtime role's) must be exactly what they were before the failed releases.
+    summary.grantsUnchanged = (await grantSnapshot(scratch)) === grantsBefore;
     // C) A normal release (no new migration) on the same copy passes the smoke and changes nothing.
     const rc = await releaseMigrate({ databaseUrl: scratch.toString(), outDir });
     summary.normalRelease = { status: rc.status, smokeOk: rc.smoke?.ok };
@@ -144,7 +151,7 @@ export async function migrationRollbackDrill(sourceUrl: string) {
       rb.status === "ROLLED_BACK" &&
       rb.dataRestoredIdentical === true &&
       summary.scratchMatchesSourceCopy === true &&
-      summary.appRoleGrantsAfterRollback !== false &&
+      summary.grantsUnchanged === true &&
       rc.status === "MIGRATED";
     return { pass, summary };
   } finally {
