@@ -60,7 +60,7 @@ _For the people who run the system. Pairs with RELEASE_RUNBOOK.md (deploys), doc
 | Secret | Rotation | Procedure / impact |
 |---|---|---|
 | RDS master password | Managed by RDS (Secrets Manager) | Used only by the `migrate` task |
-| `db-app-password` | Quarterly or on staff change | 1. `ALTER ROLE projectos_app PASSWORD …` 2. update the secret 3. force-new-deployment of web and worker (tasks read the secret at start) |
+| `db-app-password` | Quarterly or on staff change | 1. `ALTER ROLE projectos_app PASSWORD …` (or re-run `infra/sql/app-role.sql -v org_slug=<org>`, which also re-binds row-level security) 2. update the secret 3. force-new-deployment of web and worker (tasks read the secret at start) |
 | `better-auth-secret` | Yearly or on suspicion | Rotating it **signs everyone out** and invalidates MFA secrets encrypted with it, so users must re-enrol MFA. Plan with clinic operations. |
 | `backup-encryption-key` | Yearly | Keep the old key until every backup encrypted with it has expired. Store the key **separately** from the backup location. |
 | KMS CMKs | Automatic yearly rotation | Nothing to do |

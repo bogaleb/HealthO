@@ -52,7 +52,7 @@ The local equivalent of the restore path is `pnpm release:migrate`: encrypted ba
 
 ## 5. Environment promotion of configuration
 - Secrets (`better-auth-secret`, `backup-encryption-key`, `db-app-password`) are **per environment** and never copied from staging to production.
-- The least-privilege DB role is created once per environment with `infra/sql/app-role.sql` (operator, master credential), after the first migrate task.
+- The least-privilege DB role is created once per environment with `infra/sql/app-role.sql -v org_slug=<org>` (operator, master credential), after the first migrate task **and after the organization exists**: it binds the role to that organization for row-level security (ADR-0015). Re-run it after any restore into a new database.
 - `APP_MODE` stays `DEMO_SYNTHETIC` until the go-live signoff. Terraform refuses `PILOT_APPROVED`/`PRODUCTION_APPROVED` without `phi_approved`, a BAA reference and a scope-check date.
 
 ## 6. First production deployment (empty account)
