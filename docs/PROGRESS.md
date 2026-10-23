@@ -1,6 +1,6 @@
 # PROGRESS — ProjectOS Health
 
-_Last updated: 2026-10-22 · Current phase: **Phase 8 complete — release candidate v0.3.0-rc.1 for a SYNTHETIC staging deployment → next is Prompt 09** · Readiness verdict: **NOT APPROVED FOR REAL PHI**_
+_Last updated: 2026-10-23 · Current phase: **All prompts 00–09 addressed — Phase 8 RC v0.3.0-rc.1 (synthetic staging); Phase 9 estimated, not started (gated)** · Readiness verdict: **NOT APPROVED FOR REAL PHI**_
 
 Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** — only a synthetic EHR simulator exists (ADR-0012). **NOT APPROVED FOR REAL PHI** (docs/compliance/READINESS_REPORT.md).
 
@@ -18,7 +18,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | 7 | EHR adapter contract + synthetic simulator, EHR_MASTER fail-closed write-through, availability/change sync, reconciliation, Integration Health, PHI-readiness checklist + checks, MFA, patient-read audit, downtime print, restore drill, clinic-day rehearsal | ✅ Done (synthetic), verified |
 | 8 | Production hardening: nonce CSP, DB-backed rate limits, least-privilege DB role, slim release images, release versioning, privilege matrix, axe, log PHI scan, load test, clean-deploy restore, migration rollback, Terraform (validated, not applied), RC checklist, ops handbook, cost report | ✅ Done — RC for synthetic staging; see docs/release/RC_CHECKLIST.md |
 | — | Remaining BLOCKED items (BAA, service scope, applied infra, pen test, staff tabletop, on-call, real EHR, counsel-reviewed rules, email vendor) | Owned by the organization |
-| 9 | Commercial expansion | ⏳ Next (Prompt 09) |
+| 9 | Commercial expansion | 📋 Estimate + ADR-0014 delivered (`docs/release/SAAS_EXPANSION_ESTIMATE.md`); **implementation not started by design** — gated on a single-org pilot ≥ 60 days + written owner approval + counsel + security owner |
 
 ## What works (verified in a real browser against PostgreSQL 16)
 - Sign in / out (Better Auth, DB sessions, httpOnly cookies), generic error on bad credentials, sign-in rate limiting, redirect when signed out.
@@ -127,9 +127,9 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 15. Legacy Phase 4 demo bookings on an existing database show "Not evaluated" until re-checked or rescreened (the worker does this hourly).
 
 ## Next 3 tasks
-1. **Prompt 09 — commercial expansion** (`prompts/09_COMMERCIAL_EXPANSION.md`).
-2. Review the CodeQL results in the GitHub Security tab (owner sign-in) and enable branch protection on `main` requiring the CI + Security checks.
-3. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop).
+1. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop, counsel-reviewed rules, EHR vendor, email vendor) → single-organization pilot.
+2. Branch protection on `main` requiring CI + Security; review CodeQL results in the GitHub Security tab.
+3. Optional hardening with owner approval: PostgreSQL row-level security (SAAS_EXPANSION_ESTIMATE.md WP1) — useful for one organization and a prerequisite for any second one.
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build) · 0013 production hardening without a compliance claim
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build) · 0013 production hardening without a compliance claim · 0014 commercial SaaS expansion (proposed, gated)

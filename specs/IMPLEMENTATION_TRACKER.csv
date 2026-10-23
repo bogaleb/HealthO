@@ -12,4 +12,4 @@ phase,feature,deliverable,acceptance,priority
 7,EHR simulator,Adapter interface and EHR master fail-closed,Offline authoritative EHR cannot silently confirm,P0
 7,PHI gate,"BAAs, security, EHR, regulatory approvals",No live records without signed checks,P0
 8,Recovery and release,Backup restore and release automation,Restoration reproducible and tested,P0
-9,Multi-tenant commercialization,Provisioning and subscription controls,Blocked until pilot approval,P2
+9,Multi-tenant commercialization,Provisioning and subscription controls,Blocked until pilot approval — estimate + ADR-0014 done 2026-10-23,P2
