@@ -25,3 +25,4 @@ perform the formal risk analysis for the real deployment.
 | 18 | Restored deployment inherits rate-limit lock-outs | Low / Low | Ephemeral counters excluded from dumps | **Done (Phase 8)** (found by the clean-restore drill) |
 | 19 | Web container root filesystem writable | Low / Medium | Read-only root + scratch volume for `.next/cache` | **Open** — verify in staging (RC SEC-ROFS) |
 | 20 | Cloud configuration drift / misconfiguration | Medium / High | Terraform + checkov (313/0) + `tofu test` PHI gate; AWS Config/Security Hub as account baseline | IaC done; baseline is an organization item |
+| 21 | Missing organization filter in a query (app-only isolation) | Low / High | PostgreSQL RLS on every tenant table, runtime role bound to its organization, fail-closed when unbound (ADR-0015) | **Done (2026-10-23)** |

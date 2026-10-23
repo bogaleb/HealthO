@@ -58,5 +58,5 @@ The local equivalent of the restore path is `pnpm release:migrate`: encrypted ba
 ## 6. First production deployment (empty account)
 1. Account baseline (outside this repo): CloudTrail organization trail, GuardDuty, AWS Config, Security Hub, the S3 state bucket, the GitHub OIDC provider, and the ACM certificate for the domain.
 2. `tofu init -backend-config=environments/production.backend.hcl`, then `tofu apply -var-file=environments/production.tfvars -var image_tag=<sha>`.
-3. Set the secret values (`aws secretsmanager put-secret-value`), run `migrate`, run `app-role.sql`, then set web/worker desired counts.
+3. Set the secret values (`aws secretsmanager put-secret-value`), run `migrate`, create the organization, run `app-role.sql -v org_slug=<org>` (binds row-level security to it), then set web/worker desired counts.
 4. Production starts **empty** (no synthetic seed). Staff accounts are created by invitation once email invites exist (GATE-INVITE).

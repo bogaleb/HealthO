@@ -116,7 +116,10 @@ test("SCH-01 over HTTP: two schedulers book the same slot at once → one 201, o
 
 test("reschedule from the drawer moves the appointment; manual entry rejects a DST-nonexistent time", async ({ page }) => {
   await login(page, USERS.admin);
-  const tomorrow = day(1);
+  // The seed books from the next working day (weekends have no clinic hours), so open that day, not "tomorrow".
+  let n = 1;
+  while ([0, 6].includes(new Date(`${day(n)}T12:00:00Z`).getUTCDay())) n++;
+  const tomorrow = day(n);
   await page.goto(`/scheduling/calendar?date=${tomorrow}`);
   await settle(page);
   const firstLink = page.getByRole("table").getByRole("link").first();

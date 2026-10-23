@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow SemVer; release images are tagged by git SHA. **Synthetic data only — NOT APPROVED FOR REAL PHI.**
 
+## Unreleased (0.3.0-rc.2)
+- **Row-level security** on every tenant table (migration 0015, ADR-0015); runtime role bound to its organization via `infra/sql/app-role.sql -v org_slug=…`; fail closed when unbound.
+- Fixed: credential/rule form dates used the browser's time zone instead of the organization's.
+- Phase 9 commercial-SaaS estimate and ADR-0014 (proposed; implementation gated on a pilot).
+- CI: Node 24 action versions, runner pinned to ubuntu-24.04.
+
 ## 0.3.0-rc.1 — 2026-10-22 (Phase 8: production hardening)
 ### Security
 - Nonce-based Content-Security-Policy (no inline/eval scripts in production); HSTS.

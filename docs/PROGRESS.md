@@ -18,6 +18,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | 7 | EHR adapter contract + synthetic simulator, EHR_MASTER fail-closed write-through, availability/change sync, reconciliation, Integration Health, PHI-readiness checklist + checks, MFA, patient-read audit, downtime print, restore drill, clinic-day rehearsal | ✅ Done (synthetic), verified |
 | 8 | Production hardening: nonce CSP, DB-backed rate limits, least-privilege DB role, slim release images, release versioning, privilege matrix, axe, log PHI scan, load test, clean-deploy restore, migration rollback, Terraform (validated, not applied), RC checklist, ops handbook, cost report | ✅ Done — RC for synthetic staging; see docs/release/RC_CHECKLIST.md |
 | — | Remaining BLOCKED items (BAA, service scope, applied infra, pen test, staff tabletop, on-call, real EHR, counsel-reviewed rules, email vendor) | Owned by the organization |
+| — | Row-level security hardening (WP1, single-org) | ✅ Done — migration 0015, ADR-0015; e2e 45/45 + load test on the RLS-bound runtime role |
 | 9 | Commercial expansion | 📋 Estimate + ADR-0014 delivered (`docs/release/SAAS_EXPANSION_ESTIMATE.md`); **implementation not started by design** — gated on a single-org pilot ≥ 60 days + written owner approval + counsel + security owner |
 
 ## What works (verified in a real browser against PostgreSQL 16)
@@ -83,6 +84,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 | GitHub Actions on `bogaleb/HealthO` (`af1df6c`) | ✅ **CI** all steps green (lint → e2e → log scan → load test → drills, runner in UTC); ✅ **Security** green (CodeQL, gitleaks history, audit, tofu + checkov, image build + Trivy). First run failed on a real time-zone bug (fixed above). |
 
 ## Issues found and fixed during verification
+- RLS work: an e2e test opened "tomorrow" on the calendar; after midnight on a Friday that is a Saturday with no clinic hours → it now opens the next working day.
 - Phase 8 (first GitHub CI run): with the **browser in a different time zone than the organization** (CI runs in UTC), credential and rule forms defaulted dates to the browser's day, so evidence entered after 8 pm Eastern was "not yet effective" → forms and server now share `ORG_TIMEZONE`; whole e2e suite re-run with `TZ=UTC` (45/45).
 - Phase 8: **authorization after state read** — RCM bulk-assign undo and waitlist offer returned 409 to a read-only user before checking permission (found by the privilege matrix) → permission checked first.
 - Phase 8: **X-Forwarded-For** with more than one entry made Better Auth's client IP unknown, so a client could defeat per-IP limits behind a proxy → `TRUSTED_PROXY_CIDRS`.
@@ -129,7 +131,7 @@ Mode: `DEVELOPMENT`, **synthetic data only**. External EHR: **not connected** �
 ## Next 3 tasks
 1. Organization-owned BLOCKED items in docs/release/RC_CHECKLIST.md (BAA, service scope, staging account, pen test, on-call, tabletop, counsel-reviewed rules, EHR vendor, email vendor) → single-organization pilot.
 2. Branch protection on `main` requiring CI + Security; review CodeQL results in the GitHub Security tab.
-3. Optional hardening with owner approval: PostgreSQL row-level security (SAAS_EXPANSION_ESTIMATE.md WP1) — useful for one organization and a prerequisite for any second one.
+3. Bind RLS on the PC demo too if you run the app as `projectos_app` (`infra/sql/app-role.sql -v org_slug=riverbend-demo`); the default local setup runs as the table owner and is unaffected.
 
 ## Accepted ADRs
-0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build) · 0013 production hardening without a compliance claim · 0014 commercial SaaS expansion (proposed, gated)
+0001 modular monolith · 0002 single-org SaaS-ready · 0003 appointment source (proposed) · 0004 DB concurrency · 0005 stack selection · 0006 local invite simulation · 0007 credentialing model · 0008 Next.js 16 upgrade · 0009 scheduling model · 0010 eligibility service · 0011 RCM, reconciling reports, notification outbox · 0012 EHR adapter, fail-closed write-through, PHI readiness · 0003 updated (accepted for synthetic build) · 0013 production hardening without a compliance claim · 0014 commercial SaaS expansion (proposed, gated) · 0015 row-level security

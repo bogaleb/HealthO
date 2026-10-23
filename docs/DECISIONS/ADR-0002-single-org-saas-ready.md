@@ -10,4 +10,4 @@
 - Grants are re-read from the DB on every request — suspension or role removal takes effect immediately.
 - Anti-escalation: you can only grant permissions you hold org-wide; nobody can change their own roles.
 
-**Deferred:** PostgreSQL RLS as defense-in-depth (tracked for Phase 8).
+**Done (2026-10-23):** PostgreSQL RLS as defense-in-depth — migration 0015, ADR-0015.

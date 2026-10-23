@@ -45,4 +45,4 @@ It also says explicitly: **do not start before a pilot, only with explicit proje
 ## Consequences
 - Until the gate is passed, `loadAuthContext` keeps refusing users with more than one active membership. That is a deliberate safety property, not a bug.
 - About 21–29 engineer-weeks of work plus external pen-test and legal costs (SAAS_EXPANSION_ESTIMATE.md).
-- ADR-0002's deferred item, "RLS as defense-in-depth", becomes a hard prerequisite for a second organization.
+- ADR-0002's deferred item, RLS as defense-in-depth, is now done for single-organization deployments (ADR-0015, migration 0015). The per-transaction tenant context needed for a *shared* runtime is still a prerequisite for a second organization.

@@ -92,3 +92,4 @@
 | OPS-04 | Clean-deployment restore: encrypted dump → new DB → migrate → server + sign-in + probes + worker tick | `pnpm ops:clean-restore` | ✅ |
 | OPS-05 | Migration rollback: SQL error and destructive migration → restored, data identical, grants intact | `pnpm ops:migration-drill`, `pnpm release:migrate` | ✅ |
 | INF | Terraform validate + mocked-provider plans + PHI gate preconditions; checkov | `tofu validate`, `tofu test` (4/4), checkov 313/0 | ✅ (not applied) |
+| SEC (RLS) | Every tenant table has `org_isolation`; bound role sees 0 foreign rows in 60 tables, cannot update/delete/insert across orgs, sees nothing when unbound | `packages/core/test/rls.int.test.ts` + e2e 45/45 as the RLS-bound role | ✅ |
