@@ -235,11 +235,15 @@ body {
   .reveal-mask {
     display: block;
     overflow: hidden;
-    padding-bottom: 0.08em;
-    margin-bottom: -0.08em;
+    /* Room for descenders (g, y, p) at tight display line-heights; the negative margin keeps the rhythm. */
+    padding-bottom: 0.2em;
+    margin-bottom: -0.2em;
   }
   .reveal-line {
     display: block;
+    /* background-clip:text only paints inside this box, so it must extend under the descenders too. */
+    padding-bottom: 0.2em;
+    margin-bottom: -0.2em;
     animation: line-rise 1.05s var(--ease-spring-soft) both;
     animation-delay: calc(var(--i, 0) * 90ms + var(--d, 0ms));
   }
